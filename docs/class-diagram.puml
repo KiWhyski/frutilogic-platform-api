@@ -1,0 +1,1110 @@
+@startuml
+
+skinparam monochrome true
+
+package "Stocksip.Shared.Domain" {
+  package "Model" {
+    package "Events" {
+      interface "IEvent" as IEvent {}
+    }
+  
+    package "ValueObjects" {
+      class "PurchaseOrderId" as GeneralPurchaseOrderId <<record>> {
+        +Id: string
+      }
+    
+      class "CatalogId" as GeneralCatalogId <<record>> {
+        +Id: string
+      }
+    
+      class "AccountId" as AccountId <<record>> {
+        +Id: string 
+      }
+      
+      class "InventoryId" as InventoryId <<record>> {
+        +Id: string
+      }
+      
+      class "ProductId" as ProductId <<record>> {
+        +Id: string
+      }
+      
+      class "UserId" as GeneralUserId <<record>> {
+        +Id: string 
+      }
+      
+      class "Money" as Money <<record>> {
+        +Amount: decimal
+        +Currency: Currency
+        --
+        +MoneyToString(): string
+      }
+      
+      class "Currency" as Currency <<record>> {
+        +Code: string
+        --
+        +CurrencyToString(): string
+        +GetHashCode(): int
+      }
+      
+      class "Email" as GeneralEmail <<record>> {
+        +Email: string
+        --
+        -IsEmailValid(string email): bool
+      }
+      
+      class "ImageUrl" as ImageUrl <<record>> {
+        +ImageUri: Uri
+        --
+        -CreateValidUrl(string ImageUri): Uri
+        +ToString(): string
+      }
+    }
+  }
+  
+  package "Repositories" {
+    interface "IBaseRepository" as IBaseRepository {}
+  }
+  
+  Money "1" --> "1" Currency : relates to
+}
+
+
+package "Stocksip.IAM.Domain" {
+  package "Model" {
+    package "Aggregates" {
+      class "User" as User {
+        +Id: int
+        -Email: Email
+        +Username: string
+        +Password: string
+        +CreatedAt: DateTime
+        +UpdatedAt: DateTime
+        +AccountId: AccountId
+        +UserRole: Role
+        +UserRoleId: string
+        --
+        +ChangePassword(string newPassword): User
+        +UpdateUsername(string newUsername): User
+        +ChangeRole(string newRole): void
+      }
+    }
+    
+    package "Entities" {
+      class "Role" as Role {
+        +Id: string
+        +Name: EUserRoles
+      }
+    }
+    
+    package "ValueObjects" {
+      class "EUserRoles" as EUserRoles <<enum>> {
+        +SuperAdmin
+        +Admin
+        +AccountOwner
+        +Normal
+      }
+    }
+    
+    package "Commands" {
+      class "Commands" as UserCommands <<record>> {
+      
+      }
+    }
+
+    package "Queries" {
+      class "Queries" as UserQueries <<record>> {
+      
+      }
+    }
+  }
+
+  package "Services" {
+    interface "IUserCommandService" as IUserCommandService {
+    --
+    +Handle(): Task
+    }
+
+    interface "IUserQueryService" as IUserQueryService {
+    --
+    +Handle(): Task
+    }
+  }
+
+  package "Repositories" {
+    interface "IUserRepository" as IUserRepository {}
+  }
+
+  User "1" --> "1" AccountId : relates to
+  User "1" --> "1" GeneralEmail : relates to
+  User "1" --> "1" Role : has
+  
+  Role "1" --> "1" EUserRoles : has
+  
+  IUserCommandService "1" ..> "N" UserCommands : uses
+  IUserQueryService "1" ..> "N" UserQueries : uses
+  
+  IUserRepository "1" ..> "N" User : uses
+  IUserRepository "1" ..> "1" IBaseRepository : uses
+}
+
+package "Stocksip.Profiles.Domain" {
+  package "Model" {
+    package "Aggregates" {
+      class "Profile" as Profile {
+        +Id: string
+        -Name: PersonName
+        -PersonContactNumber: PersonContactNumber
+        +FirstName: string 
+        +LastName: string
+        +ContactNumber: string
+        +Sex: string
+        +BirthDate: DateTime
+        +CreatedAt: DateTime
+        +UpdatedAt: DateTime
+        +AvatarUrl: string
+        +UserId: UserId
+      }
+    }
+
+    package "ValueObjects" {
+      
+      class "PersonContactNumber" as PersonContactNumber <<record>> {
+        +PhoneNumber: string
+      }
+
+      class "PersonName" as PersonName <<record>> {
+        +FirstName: string
+        +LastName: string
+        --
+        +GetFullName(): string
+      }
+    }
+
+    package "Commands" {
+      class "Commands" as ProfileCommands <<record>> {}
+    }
+
+    package "Queries" {
+      class "Queries" as ProfileQueries <<record>> {}
+    }
+  }
+
+  package "Services" {
+    interface "IProfileCommandService" as IProfileCommandService {
+    --
+    +Handle(): Task
+    }
+
+    interface "IProfileQueryService" as IProfileQueryService {
+    --
+    +Handle(): Task
+    }
+  }
+
+  package "Repositories" {
+    interface "IProfileRepository" as IProfileRepository {}
+  }
+  
+  Profile "1" --> "1" GeneralUserId : relates to
+  Profile "1" --> "1" PersonName : relates to
+  Profile "1" --> "1" PersonContactNumber : relates to
+  
+  IProfileCommandService "1" ..> "N" ProfileCommands : uses
+  IProfileQueryService "1" ..> "N" ProfileQueries : uses
+  
+  IProfileRepository "1" ..> "1" IBaseRepository : uses
+  IProfileRepository "1" ..> "N" Profile : uses
+}
+
+package "Stocksip.InventoryManagement.Domain" {
+  package "Model" {
+    package "Aggregates" {
+      class "Product" as Product {
+        +ProductId: string
+        +ProductName: string
+        +UnitPrice: Money
+        +Brand: Brand
+        +Type: EProductType
+        +MinimumStock: ProductMinimumStock
+        +TotalStockinStore: int
+        +IsInWarehouse: bool
+        +ImageUrl: ImageUrl
+        +AccountId: AccountId
+        +SuplierId: AccountId
+        +Inventories: ICollection<Inventory>
+        --
+        +SetMinimumStock(int newMinimumStock): void
+        +GetMinimumStock(): ProductMinimumStock
+        +UpdateProductInfo(): void
+        -ExistsInventoryRelation(Inventory inventory): bool
+        +AddInventoryRelation(inventory inventory): void
+        +RemoveInventoryRelation(inventory inventory): void
+        +AddStockToTotal(int stock): void
+      }
+
+      class "Warehouse" as Warehouse {
+        +WarehouseId: string
+        +Name: string
+        +Address: WarehouseAddress
+        +Temperature: Temperature
+        +TotalCapacity: Capacity
+        +ImageUrl: ImageUrl
+        +AccountId: AccountId
+        +Inventories: ICollection<Inventory>
+        --
+        +UpdateWarehouse(): void
+        -ValidateWarehouseName(string name): string
+        -ExistsInventoryRelation(Inventory inventory): bool
+        +AddInventoryRelation(inventory inventory): void
+        +RemoveInventoryRelation(inventory inventory): void
+      }
+
+      class "Inventory" as Inventory {
+        +InventoryId: string  
+        +ProductStored: Product
+        +WarehouseStore: Warehouse
+        +ProductId: string
+        +WarehouseId: string
+        +CurrentStock: ProductStock
+        +CurrentState: EProductState
+        --
+        +SetProductStateToOutOfStock(): void
+        +SetProductStateToWithStock(): void
+        +AddStockToProduct(int addedStock): void
+        +RemoveStockFromProduct(int removedStock): void
+        +MoveProductToAnotherWarehouse(string newWarehouseId): void
+      }
+
+      class "CareGuide" as CareGuide {
+        +CareGuideId: string
+        +AccountId: AccountId
+        +ProductAssociated: Product
+        +ProductId: string
+        +Title: string
+        +Summary: string
+        +RecommendedMinTemperature: double
+        +RecommendedMaxTemperature: double
+        +RecommendedPlaceStorage: string
+        +GeneralRecommendation: string
+        --
+        +UpdateRecommendations(): void
+        +UnassignCareGuide(): void
+        +AsignCareGuideToAnotherProduct(string newProductId): void
+      }
+      
+      class "Catalog" as Catalog {
+        +Id: string
+        +Name: string
+        +Description: string
+        +CatalogItems: ICollection<CatalogItem>
+        +OwnerAccount: AccountId
+        +OwnerEmail: Email
+        +IsPublished: bool
+        --
+        +PublishCatalog(): void
+        +UnpublishCatalog(): void
+        +UpdateCatalog(string newName, string newDesc): void
+        +AddItem(ProductId productId): void
+        +RemoveItem(ProductId productId): void
+        +GetOwnerAccount(): AccountId
+      }
+    }
+
+    package "Entities" {
+      class "CatalogItem" as CatalogItem {
+        +ProductId: ProductId
+        +InventoryId> InventoryId
+        +UnitPrice: Money
+        +StockAvailable: int
+        +AddedDate: DateTime
+      }
+      
+      class "Brand" as Brand {
+        +Id: string
+        +Name: EBrandNames
+      }
+    
+      class "ProductExit" as ProductExit {
+        +Id: string
+        +InventoryAffected: Inventory
+        +InventoryAffectedId: Inventory
+        +ExitReason: EProductExitReasons
+        +OutputQuantity: int
+        +ExitDate: DateTime
+        --
+        +UpdateInventoryAfterExit(int outputQuantity): void
+      }
+      
+      class "ProductTransfer" as ProductMovement {
+        +Id: string
+        +OriginalInventory: Inventory
+        +OriginalInventoryId: string
+        +NewWarehouse: Warehouse
+        +NewWarehouseId: string
+        +ProductToTransfer: Product
+        +ProductToTransferId: string
+        +AmountTransfered: int
+        +TransferDate: DateTime
+        --
+        +UpdateInventoryAfterTransfer(int amountTransfered): void
+      }
+    }
+
+    package "ValueObjects" {
+      class "Capacity" as Capacity <<record>> {
+        +TotalCapacity: double
+        --
+        -IsCapacityValid(double capacity): bool
+      }
+      
+      class "EBrandNames" as EBrandNames <<enum>> {
+        +Queirolo
+        +Tabernero
+      }
+      
+      class "EProductType" as EProductType <<enum>> {
+        +Snack
+        +Soda
+        +Wine
+        +Whisky
+        +Rum
+        +Tequila
+      }
+      
+      class "EProductExitReasons" as EProductExitReasons <<enum>> {}
+      class "EProductState" as EProductState <<enum>> {}
+      
+      class "ProductContent" as ProductContent <<record>> {
+        +Content: double
+        --
+        -IsContentValid(double content): bool
+      }
+      
+      class "ProductMinimumStock" as ProductMinimumStock <<record>> {
+        +MinimumStock: int
+        --
+        -IsMinimumStockValid(int stock): bool
+        +GetMinimumStock(): int
+        +UpdateMinimumStock(int stock): ProductMinimumStock
+      }
+      
+      class "ProductStock" as ProductStock <<record>> {
+        +Stock: int
+        --
+        +IsStockValid(int stock): bool
+        +IncreaseStock(int stock): ProductStock
+        +ReduceStock(int stock): ProductStock
+        +GetCurrentStock(): int
+      }
+      
+      class "Temperature" as Temperature <<record>> {
+        +Temperature: double
+        --
+        -IsTemperatureValid(double temp): bool
+      }
+      
+      class "WarehouseAddress" as WarehouseAddress <<record>> {
+        +Street: string
+        +City: string
+        +District: string
+        +PostalCode: string
+        +Country: string
+        --
+        -IsAddressValid(): bool
+      }
+    }
+
+    package "Commands" {
+      class "Commands" as InventoryCommands <<record>> {}
+    }
+
+    package "Queries" {
+      class "Queries" as InventoryQueries <<record>> {}
+    }
+
+    package "Events" {
+      class "Events" as InventoryEvents <<record>> {}
+    }
+  }
+    
+  package "Services" {
+    interface "IBrandCommandService" as IBrandCommandService {
+      --
+      Handle(): Task
+    }
+    
+    interface "IBrandQueryService" as IBrandQueryService {
+      --
+      Handle(): Task
+    }
+  
+    interface "IProductCommandService" as IProductCommandService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IProductQueryService" as IProductQueryService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IWarehouseCommandService" as IWarehouseCommandService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IWarehouseQueryService" as IWarehouseQueryService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IInventoryCommandService" as IInventoryCommandService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IInventoryQueryService" as IInventoryQueryService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "ICareGuideCommandService" as ICareGuideCommandService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "ICareGuideQueryService" as ICareGuideQueryService {
+      --
+      +Handle(): Task
+    }
+  }
+  
+  package "Repositories" {
+    interface "IProductRepository" as IProductRepository {}
+    interface "IProductExitRepository" as IProductExitRepository {}
+    interface "IProductMovementRepository" as IProductMovementRepository {}
+    interface "IWarehouseRepository" as IWarehouseRepository {}
+    interface "IInventoryRepository" as IInventoryRepository {}
+    interface "ICareGuideRepository" as ICareGuideRepository {}
+    interface "IBrandRepository" as IBrandRepository {}
+    interface "ICatalogRepository" as ICatalogRepository {}
+  }
+  
+  Product "1" --> "1" AccountId : relates to
+  Product "1" --> "1" EProductType : relates to
+  Product "1" --> "1" ImageUrl : relates to
+  Product "1" --> "N" Inventory : has
+  Product "1" --> "1" ProductMinimumStock : relates to
+  Product "1" --> "1" ProductContent : relates to
+  Product "1" --> "1" Money : relates to 
+  Product "1" --> "1" Brand : relates to
+  
+  Warehouse "1" --> "1" AccountId : relates to
+  Warehouse "1" --> "N" Inventory : relates to
+  Warehouse "1" --> "1" Capacity : relates to 
+  Warehouse "1" --> "1" WarehouseAddress : relates to
+  Warehouse "1" --> "1" Temperature : relates to
+  
+  Inventory "1" --> "1" EProductState : relates to
+  Inventory "1" --> "1" ProductStock : relates to
+  
+  CareGuide "1" --> "1" Product : relates to
+  
+  ProductExit "1" --> "N" Product : uses
+  ProductExit "1" --> "1" EProductExitReasons : relates to
+  
+  Catalog "1" ..> "N" CatalogItem : has
+  Catalog "1" --> "1" AccountId : relates to
+  Catalog "1" --> "1" GeneralEmail : relates to
+  Catalog "1" --> "1" Money : relates to
+  
+  CatalogItem "1" --> "1" Money : relates to
+  CatalogItem "1" --> "1" ProductId : relates to
+  CatalogItem "1" --> "1" InventoryId : relates to
+  
+  ProductMovement "1" --> "N" Product : uses
+  ProductMovement "1" --> "1" Inventory : creates
+  ProductMovement "1" --> "1" Warehouse : uses
+  
+  IProductRepository "1" ..> "N" Product : uses
+  IProductRepository "1" ..> "1" IBaseRepository : uses
+  
+  IWarehouseRepository "1" ..> "N" Warehouse : uses
+  IWarehouseRepository "1" ..> "1" IBaseRepository : uses
+  
+  IInventoryRepository "1" ..> "N" Inventory : uses
+  IInventoryRepository "1" ..> "1" IBaseRepository : uses
+  
+  ICareGuideRepository "1" ..> "N" CareGuide : uses
+  ICareGuideRepository "1" ..> "1" IBaseRepository : uses
+  
+  IBrandRepository "1" ..> "N" Brand : uses
+  IBrandRepository "1" ..> "1" IBaseRepository : uses
+  
+  IProductExitRepository "1" ..> "N" ProductExit : uses
+  IProductExitRepository "1" ..> "1" IBaseRepository : uses
+  
+  IProductMovementRepository "1" ..> "N" ProductMovement : uses
+  IProductMovementRepository "1" ..> "1" IBaseRepository : uses
+  
+  IProductCommandService "1" ..> "N" InventoryCommands : uses
+  IProductQueryService "1" ..> "N" InventoryQueries : uses
+  
+  IWarehouseCommandService "1" ..> "N" InventoryCommands : uses
+  IWarehouseQueryService "1" ..> "N" InventoryQueries : uses
+  
+  IBrandCommandService "1" ..> "N" InventoryCommands : uses
+  IBrandQueryService "1" ..> "N" InventoryQueries : uses
+  
+  IInventoryCommandService "1" ..> "N" InventoryCommands : uses
+  IInventoryQueryService "1" ..> "N" InventoryQueries : uses
+  
+  ICareGuideCommandService "1" ..> "N" InventoryCommands : uses
+  ICareGuideQueryService "1" ..> "N" InventoryQueries : uses
+  
+  ICatalogCommandService "1" ..> "1" InventoryCommands : uses
+  ICatalogQueryService "1" ..> "1" InventoryQueries : uses
+  
+  InventoryEvents "1" ..> "1" IEvent : implements
+  
+  ICatalogRepository "1" ..> "1" Catalog : uses
+  ICatalogRepository "1" ..> "1" IBaseRepository : uses
+}
+
+package "Stocksip.AlertsAndNotifications.Domain" {
+  package "Model" {
+    package "Aggregates" {
+      class "Alert" as Alert {
+        +Id: string
+        +Title: string
+        +Message: string
+        +Severity: ESeverityTypes
+        +Type: EAlertTypes
+        +GeneratedAt: DateTime
+        +AccountId: AccountId
+        +InventoryId: InventoryId
+      }
+      
+      class "Notification" as Notification {
+        +Id: string
+        +Title: string
+        +Message: string
+        +Type: ENotificationTypes
+        +GeneratedAt: DateTime
+        +AccountId: AccountId
+        +PurchaseOrderId: PurchaseOrderId
+      }
+    }
+    
+    package "ValueObjects" {
+      class "EAlertTypes" as EAlertTypes <<enum>> {
+        +ProductLowStock
+        +ProductOutOfStock
+        +ProductExpired
+      }
+      
+      class "ESeverityTypes" as ESeverityTypes <<enum>> {
+        +Info
+        +Warning
+        +Critical
+      }
+      
+      class "ENotificationTypes" as ENotificationTypes <<enum>> {
+        +OrderSent
+        +OrderConfirmed
+        +OrderCompleted
+        +ProductsDelivered
+      }
+      
+      class "PurchaseOrderId" as PurchaseOrderId <<record>> {
+        +Id: string
+      }
+    }
+    
+    package "Commands" {
+      class "Commands" as AlertCommands <<record>> {}
+    }
+
+    package "Queries" {
+      class "Queries" as AlertQueries <<record>> {}
+    }
+  }
+  
+  package "Services" {
+    interface "IAlertCommandService" as IAlertCommandService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IAlertQueryService" as IAlertQueryService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "INotificationCommandService" as INotificationCommandService {
+      --
+      Handle(): Task
+    }
+    
+    interface "INotificationQueryService" as INotificationQueryService {
+      --
+      Handle(): Task
+    }
+    
+    interface "ICatalogCommandService" as ICatalogCommandService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "ICatalogQueryService" as ICatalogQueryService {
+      --
+      +Handle(): Task
+    }
+  }
+  
+  package "Repositories" {
+    interface "IAlertRepository" as IAlertRepository {}
+    interface "INotificationRepository" as INotificationRepository {}
+  }
+  
+  Alert "1" --> "1" EAlertTypes : relates to
+  Alert "1" --> "1" ESeverityTypes : relates to
+  Alert "1" --> "1" InventoryId : relates to
+  Alert "1" --> "1" AccountId : relates to
+  
+  Notification "1" --> "1" ENotificationTypes : relates to
+  Notification "1" --> "1" AccountId : relates to
+  Notification "1" --> "1" PurchaseOrderId : relates to
+  
+  IAlertCommandService "1" ..> "N" AlertCommands : uses
+  IAlertQueryService "1" ..> "N" AlertQueries : uses
+  
+  INotificationCommandService "1" ..> "N" AlertCommands : uses
+  INotificationQueryService "1" ..> "N" AlertQueries : uses
+  
+  IAlertRepository "1" ..> "N" Alert : uses
+  IAlertRepository "1" ..> "1" IBaseRepository : uses
+  
+  INotificationRepository "1" ..> "N" Notification : uses
+  INotificationRepository "1" ..> "1" IBaseRepository : uses
+}
+
+package "Stocksip.PaymentAndSubscriptions.Domain" {
+  package "Model" {
+    package "Aggregates" {
+      class "Account" as Account {
+        +Id: string
+        +Business: Business
+        +BusinessId: string
+        +AccountStatus: EAccountStatus
+        +AccountRole: EAccountRole
+        +CreatedDate: DateTime
+        +OwnerUserId: UserId
+        --
+        +ActivateAccount(): void
+        +GetCreationDate(): string
+        +GetBusinessName(): string
+        +GetBusinessEmail(): string
+      }
+      
+      class "Subscription" as Subscription {
+        +Id: string
+        +SubscribedAccount: Account
+        +SubscribedAccountId: string
+        +AsociatedPlan: Plan
+        +PlanId: string
+        +SubscriptionStatus: ESubscriptionStatus
+        +CreatedDate: DateTime
+        +ExpirationDate: DateTime
+        --
+        +ActivateSubscription(): void
+        +ActivateWithPlan(Plan newPlan): void
+        +CalculateExpirationDate(Plan plan): DateTime
+        +UpgradePlan(Plan newPlan): void
+      }
+    }
+    
+    package "Entities" {
+      class "Plan" as Plan {
+        +Id: string
+        +PlanType: EPlanType
+        +Description: string
+        +PaymentFrequency: EPaymentFrequency
+        +PlanPrice: Money
+        +MaxWarehouses: int
+        +MaxProducts: int
+        --
+        +CreateFreePlan(): Plan
+        +CreatePremiumMonthlyPlan(): Plan
+        +CreatePremiumAnualPlan(): Plan
+        -ValidatePlan(): void
+      }
+      
+      class "Business" as Business {
+        +Id: string
+        +BusinessName: BusinessName
+        +BusinessEmail: EmailAddress
+        +Ruc: string
+      }
+    }
+    
+    package "ValueObjects" {
+      class "AccountRole" as AccountRole <<record>> {
+        +Role: string
+        --
+        +AccountRoleToString(): string
+      }
+      
+      class "BusinessName" as BusinessName <<record>> {
+        +Name: string
+        --
+        +BusinessNameToString(): string
+      }
+      
+      class "BusinessEmail" as BusinessEmail <<record>> {
+        +Email: string
+        --
+        +BusinessEmailToString(): string
+      }
+      
+      class "Ruc" as Ruc <<record>> {
+        +Ruc: string
+      }
+      
+      class "PlanLimits" as PlanLimits <<record>> {}
+      
+      class "EAccountRole" as EAccountRole <<enum>> {}
+      class "EAccountStatus" as EAccountStatus <<enum>> {}
+      class "EPaymentFrequency" as EPaymentFrequency <<enum>> {}
+      class "EPlanType" as EPlanType <<enum>> {}
+      class "ESubscriptionStatus" as ESubscriptionStatus <<enum>> {}
+    }
+    
+    package "Commands" {
+      class "Commands" as PaymentCommands <<record>> {}
+    }
+
+    package "Queries" {
+      class "Queries" as PaymentQueries <<record>> {}
+    }
+    
+    package "Events" {
+      class "AccountCreatedEvent" as AccountCreatedEvent {}
+    }
+  }
+  
+  package "Services" {
+    interface "IAccountCommandService" as IAccountCommandService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IAccountQueryService" as IAccountQueryService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IPlanQueryService" as IPlanQueryService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "ISubscriptionCommandService" as ISubscriptionCommandService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "ISubscriptionQueryService" as ISubscriptionQueryService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IBusinessCommandService" as IBusinessCommandService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IBusinessQueryService" as IBusinessQueryService {
+      --
+      +Handle(): Task
+    }
+  }
+  
+  package "Repositories" {
+    interface "IAccountRepository" as IAccountRepository {}
+    interface "ISubscriptionRepository" as ISubscriptionRepository {}
+    interface "IPlanRepository" as IPlanRepository {}
+    interface "IBusinessRepository" as IBusinessRepository {}
+  }
+  
+  Account "1" --> "1" Subscription : relates to
+  Account "1" --> "1" GeneralUserId : relates to
+  Account "1" --> "1" EAccountStatus : relates to 
+  Account "1" --> "1" EAccountRole : relates to
+  Account "1" --> "1" Business : has
+  
+  Subscription "1" --> "1" Plan : has
+  Subscription "1" --> "1" Account : has
+  Subscription "1" --> "1" ESubscriptionStatus : has
+  
+  Business "1" --> "1" BusinessEmail : relates to
+  Business "1" --> "1" BusinessName : relates to
+  Business "1" --> "1" Ruc : relates to
+  
+  Plan "1" --> "1" Money : relates to
+  Plan "1" --> "1" EPlanType : relates to
+  Plan "1" --> "1" EPaymentFrequency : relates to
+  Plan "1" --> "1" PlanLimits : relates to
+  
+  IAccountCommandService "1" ..> "N" PaymentCommands : uses
+  IAccountQueryService "1" ..> "N" PaymentQueries : uses
+  IPlanQueryService "1" ..> "N" PaymentQueries : uses
+  ISubscriptionCommandService "1" ..> "N" PaymentCommands : uses
+  ISubscriptionQueryService "1" ..> "N" PaymentQueries : uses
+  IBusinessCommandService "1" ..> "N" PaymentCommands : uses
+  IBusinessQueryService "1" ..> "N" PaymentQueries : uses
+  
+  AccountCreatedEvent "1" ..> "1" IEvent : implements
+  
+  IAccountRepository "1" ..> "N" Account : uses
+  IAccountRepository "1" ..> "1" IBaseRepository : uses
+  
+  ISubscriptionRepository "1" ..> "N" Subscription : uses
+  ISubscriptionRepository "1" ..> "1" IBaseRepository : uses
+  
+  IPlanRepository "1" ..> "N" Plan : uses
+  IPlanRepository "1" ..> "1" IBaseRepository : uses
+  
+  IBusinessRepository "1" ..> "N" Business : uses
+  IBusinessRepository "1" ..> "1" IBaseRepository : uses
+}
+
+package "Stocksip.ProcurementOrdering.Domain" {
+  package "Model" {
+    package "Aggregates" {
+      class "PurchaseOrder" as PurchaseOrder {
+        +OrderCode: string
+        +Items: ICollection<PurchaseOrderItem>
+        +Status: EOrderStatuses
+        +CatalogToBuyFromId: CatalogId
+        +GenerationDate: DateTime
+        +CompletitionDate: DateTime
+        +Buyer: AccountId
+        +IsOrderSent: bool
+        +TotalToPay: Money
+        --
+        +SendOrder(): void
+      }
+      
+      class "Cart" as Cart {
+        +Id: string
+        +Items: ICollection<CartItem>
+        +CatalogToBuyFromId: CatalogId
+        +Buyer: AccountId
+        +GenerationDate: DateTime
+        +ModificationDate: DateTime
+        --
+        +AddItem(CatalogItemId catalogItemid, Money unitPrice, int quantityToPurchase): void
+        +RemoveItem(catalogItemid catalogItemid): void
+        +UpdateItemQuantity(CartItemId cartIdemId, int quantityToAdd): void
+        +CalculateTotal(): Money
+        +CheckOut(): PuchaseOrder
+      }
+    }
+  
+    package "Entities" {
+      class "CartItem" as CartItem {
+        +Id: string
+        +CatalogItemId: CatalogItemId
+        +UnitPrice: Money
+        +QuantityToPurchase: int
+        --
+        +CalculateSubTotal(): Money
+      }
+    
+      class "PurchaseOrderItem" as PurchaseOrderItem {
+        +ProductId: ProductId
+        +UnitPrice: Money
+        +InventoryId: InventoryId
+        +QuantityToPurchase: int
+        --
+        +CalculateSubTotal(): Money
+      }
+    }
+    
+    package "ValueObjects" {
+      class "CatalogItemId" as CatalogItemId <<record>> {
+        +Id: string
+      }
+    
+      class "EPurchaseOrderStatuses" as EPurchaseOrderStatuses <<enum>> {
+        +Sent
+        +Processing
+        +Confirmed
+        +Deliverying
+        +Received
+        +Canceled
+      }
+      
+      interface "IConfirmable" as IConfirmable {
+        --
+        +SendOrder(): void
+        +ProcessOrder(): void
+        +ConfirmOrder(): void
+        +DeliverOrder(): void
+        +ReceiveOrder(): void
+        +CancelOrder(): void
+      }
+    }
+    
+    package "Events" {
+      class "OrderCompleted" as OrderCompleted {}
+    }
+    
+    package "Commands" {
+      class "Commands" as OrderCommands <<record>> {}
+    }
+    
+    package "Queries" {
+      class "Queries" as OrderQueries <<record>> {}
+    }
+  }
+  
+  package "Services" {
+    interface "IOrderQueryService" as IOrderQueryService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "IOrderCommandService" as IOrderCommandService {
+      --
+      +Handle(): Task
+    }
+  }
+  
+  package "Repositories" {
+    interface "IOrderRepository" as IOrderRepository {}
+  }
+  
+  PurchaseOrder "1" ..> "N" PurchaseOrderItem : has
+  PurchaseOrder "1" --> "1" EPurchaseOrderStatuses : relates to
+  PurchaseOrder "1" --> "1" Money : relates to
+  PurchaseOrder "1" ..> "1" IConfirmable : implements
+  PurchaseOrder "1" --> "1" GeneralCatalogId : relates to
+  
+  PurchaseOrderItem "1" --> "1" ProductId : relates to
+  PurchaseOrderItem "1" --> "1" Money : relates to
+  PurchaseOrderItem "1" --> "1" InventoryId : relates to
+  
+  CartItem "1" --> "1" CatalogItemId : relates to
+  
+  OrderCompleted "1" ..> "1" IEvent : implements
+  
+  IOrderCommandService "1" ..> "1" OrderCommands : uses
+  IOrderQueryService "1" ..> "1" OrderQueries : uses
+  
+  IOrderRepository "1" ..> "1" PurchaseOrder : uses
+  IOrderRepository "1" ..> "1" IBaseRepository : uses
+}
+
+package "Stocksip.OrderManagement.Domain" {
+  package "Model" {
+    package "Aggregates" {
+      class "SalesOrder" as SalesOrder {
+        +OrderCode: string
+        +PurchaseOrderId: PurchaseOrderId
+        +Items: ICollection<SalesOrderItem>
+        +Status: ESalesOrderStatuses
+        +CatalogToBuyFrom: CatalogId
+        +ReceiptDate: DateTime
+        +CompletitionDate: DateTime
+        +Buyer: AccountId
+        --
+        +AddItem(ProductId productId, Money unitPrice, int amountToPurchase): void
+        +RemoveItem(ProductId productId): void
+        +CalculateTotal(): Money
+      }
+    }
+    
+    package "Entities" {
+      class "SalesOrderItem" as SalesOrderItem {
+        +ProductId: ProductId
+        +UnitPrice: Money
+        +InventoryId: InventoryId
+        +QuantityToSell: int
+        --
+        +CalculateSubTotal(): Money
+      }
+    }
+    
+    package "Events" {
+      class "OrderDelivered" as OrderDelivered {}
+    }
+    
+    package "ValueObjects" {
+      class "ESalesOrderStatuses" as ESalesOrderStatuses <<enum>> {
+        +Received
+        +Processing
+        +Confirmed
+        +Deliverying
+        +Arrived
+        +Canceled
+      }
+    
+      interface "IDeliverable" as IDeliverable {
+        --
+        +ProcessOrder(): void
+        +ConfirmOrder(): void
+        +DeliverOrder(): void
+        +ArriveOrder(): void
+        +CancelOrder(): void
+      }
+    }
+    
+    package "Commands" {
+      class "Commands" as SalesCommands <<record>> {}
+    }
+    
+    package "Queries" {
+      class "Queries" as SalesQueries <<record>> {}
+    }
+  }
+  
+  package "Services" {
+    interface "ISalesOrderQueryService" as ISalesOrderQueryService {
+      --
+      +Handle(): Task
+    }
+    
+    interface "ISalesOrderCommandService" as ISalesOrderCommandService {
+      --
+      +Handle(): Task
+    }
+  }
+  
+  package "Repositories" {
+    interface "ISalesOrderRepository" as ISalesOrderRepository {}
+  }
+  
+  SalesOrder "1" --> "1" GeneralPurchaseOrderId : relates to
+  SalesOrder "1" --> "1" ESalesOrderStatuses : relates to
+  SalesOrder "1" ..> "1" IDeliverable : implements
+  SalesOrder "1" --> "1" Money : relates to
+  SalesOrder "1" ..> "N" SalesOrderItem : has
+  SalesOrder "1" --> "1" GeneralCatalogId : relates to
+  
+  SalesOrderItem "1" --> "1" ProductId : relates to
+  SalesOrderItem "1" --> "1" Money : relates to
+  SalesOrderItem "1" --> "1" InventoryId : relates to
+  
+  OrderDelivered "1" ..> "1" IEvent : implements
+  
+  ISalesOrderCommandService "1" ..> "N" SalesCommands : uses
+  ISalesOrderQueryService "1" ..> "1" SalesQueries : uses
+  
+  ISalesOrderRepository "1" ..> "N" SalesOrder : uses
+  ISalesOrderRepository "1" ..> "1" IBaseRepository : uses
+}
+
+@enduml

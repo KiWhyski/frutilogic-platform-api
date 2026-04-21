@@ -1,0 +1,6 @@
+@LiquoTrack.FrutiLogicPlatform.API_HostAddress = http://localhost:5108
+
+GET {{LiquoTrack.FrutiLogicPlatform.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

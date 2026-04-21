@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Entity Framework Core related packages -->
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.9" />
+        <!-- Google API related packages -->
+        <PackageReference Include="Google.Apis.Auth" Version="1.71.0" />
+        <PackageReference Include="MediatR" Version="13.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.9" />
+        <!-- Audit Trails related packages -->
+        <PackageReference Include="EntityFrameworkCore.CreatedUpdatedDate" Version="8.0.0" />
+        <!-- Naming convention conversion related packages -->
+        <PackageReference Include="Humanizer" Version="2.14.1" />
+        <!-- BCrypt Encription related packages -->
+        <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+        <!-- JSON Web Token related packages -->
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.11.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.5" />
+        <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.11.0" />
+        <!-- Database driver for MongoDB -->
+        <PackageReference Include="MongoDB.Driver" Version="3.4.3" />
+        <!-- CQRS/Mediator Pattern related packages -->
+        <PackageReference Include="Cortex.Mediator" Version="1.6.1" />
+        <!-- Cloudinary Image Storage related packages -->
+        <PackageReference Include="CloudinaryDotNet" Version="1.27.6" />
+        <!-- Usage of Google Services (Email) related packages -->
+        <PackageReference Include="MailKit" Version="4.13.0" />
+        <!-- MercadoPago Payment Gateway related packages -->
+        <PackageReference Include="mercadopago-sdk" Version="2.10.0" />
+        <!-- PayPal Payment Gateway related packages -->
+        <PackageReference Include="PayPal.SDK.NETCore" Version="1.9.1.2" />
+        <!-- OpenAPI documentation related packages -->
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.2" />
+        <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="8.1.2" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
+    </ItemGroup>
+
+</Project>

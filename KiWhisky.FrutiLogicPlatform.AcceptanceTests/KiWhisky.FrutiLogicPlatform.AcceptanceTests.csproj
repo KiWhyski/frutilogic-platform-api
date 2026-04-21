@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+    
+    <ItemGroup>
+      <PackageReference Include="FluentAssertions" Version="8.7.1" />
+      <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.9" />
+      <PackageReference Include="Reqnroll" Version="3.1.2" />
+      <PackageReference Include="Reqnroll.SpecFlowCompatibility" Version="3.1.2" />
+      <PackageReference Include="Reqnroll.Tools.MsBuild.Generation" Version="3.1.2" />
+      <PackageReference Include="Reqnroll.xUnit" Version="3.1.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+         <ProjectReference Include="..\KiWhisky.FrutiLogicPlatform.API\KiWhisky.FrutiLogicPlatform.API.csproj" />
+    </ItemGroup>
+    
+</Project>
