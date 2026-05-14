@@ -103,6 +103,12 @@ using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.ACL;
 // Register MongoDB mappings
 GlobalMongoMappingHelper.RegisterAllBoundedContextMappings();
 
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+{
+    Environment.SetEnvironmentVariable("ASPNETCORE_URLS", $"http://0.0.0.0:{port}");
+}
+
 // Create a builder for the web application
 var builder = WebApplication.CreateBuilder(args);
 
@@ -130,17 +136,43 @@ builder.Services.AddHttpContextAccessor();
 CamelCaseFieldNamingConvention.UseCamelCaseNamingConvention();
 
 // Add CORS policy
+var configuredCorsOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+if (configuredCorsOrigins is null or { Length: 0 })
+{
+    var corsOriginsCsv = configuration["Cors:AllowedOrigins"];
+    if (!string.IsNullOrWhiteSpace(corsOriginsCsv))
+    {
+        configuredCorsOrigins = corsOriginsCsv
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+}
+
+if (configuredCorsOrigins is null or { Length: 0 } && env.IsDevelopment())
+{
+    configuredCorsOrigins =
+    [
+        "https://localhost:7164",
+        "http://localhost:5283",
+        "https://localhost:44355"
+    ];
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policyBuilder =>
     {
-        policyBuilder.WithOrigins(
-                "https://localhost:7164",
-                "http://localhost:5283",
-                "https://localhost:44355")
+        if (configuredCorsOrigins is { Length: > 0 })
+        {
+            policyBuilder.WithOrigins(configuredCorsOrigins)
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials();
+            return;
+        }
+
+        policyBuilder.AllowAnyOrigin()
             .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials();
+            .AllowAnyHeader();
     });
 });
 
@@ -155,7 +187,9 @@ builder.Services.AddCortexMediator(
 // Registers the MongoDB client as a singleton service
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
-    var cs = builder.Configuration["MongoDB:ConnectionString"];
+    var cs = builder.Configuration["MongoDB:ConnectionString"]
+             ?? builder.Configuration["MONGO_URL"]
+             ?? builder.Configuration["DATABASE_URL"];
     return string.IsNullOrEmpty(cs)
         ? throw new InvalidOperationException("MongoDB connection string is not configured")
         : new MongoClient(cs);
@@ -782,8 +816,6 @@ catch (Exception ex)
     logger.LogCritical(ex, "Host terminated unexpectedly");
     throw;
 }
-
-app.Run();
 
 // For usage of testing projects
 public partial class Program { }
