@@ -1,0 +1,15 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir \
+    tensorflowjs==4.10.0 \
+    tf2onnx==1.13.0 \
+    tensorflow==2.13.0 \
+    numpy==1.23.5
+
+COPY KiWhisky.FrutiLogicPlatform.FruitFreshness.Training/convert_model.py /app/convert_model.py
+COPY KiWhisky.FrutiLogicPlatform.FruitFreshness.Training/downloads /app/downloads
+
+CMD ["python", "convert_model.py", "--input", "downloads/A9p8vlvFO", "--output", "fruit_model.onnx", "--labels-out", "labels.txt"]
+
