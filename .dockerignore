@@ -1,0 +1,8 @@
+**/.git
+**/.vs
+**/bin
+**/obj
+**/TestResults
+KiWhisky.FrutiLogicPlatform.Tests/
+KiWhisky.FrutiLogicPlatform.AcceptanceTests/
+docs/
