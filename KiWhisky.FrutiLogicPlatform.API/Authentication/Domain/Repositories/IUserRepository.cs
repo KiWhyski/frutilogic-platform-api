@@ -15,7 +15,9 @@ public interface IUserRepository : IBaseRepository<User>
     /// <param name="email">The email to search for</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the user if found, or null.</returns>
     Task<User?> FindByEmailAsync(string email);
-
+/// <summary>
+///     Interface for User repository operations
+/// </summary>
     /// <summary>
     ///     Finds a user by their username asynchronously
     /// </summary>
@@ -44,7 +46,9 @@ public interface IUserRepository : IBaseRepository<User>
     /// <param name="username">The username to check.</param>
     /// <returns>True if the user exists; otherwise, false.</returns>
     bool ExistsByUsername(string username);
-    
+    /// <summary>
+///     Interface for User repository operations
+/// </summary>
     /// <summary>
     ///     Method to get all users by account ID.
     /// </summary>
@@ -55,7 +59,9 @@ public interface IUserRepository : IBaseRepository<User>
     ///     A list of users for the specified account.
     /// </returns>
     Task<IEnumerable<User?>> GetUsersByAccountIdAsync(string accountId);
-    
+    /// <summary>
+///     Interface for User repository operations
+/// </summary>
     /// <summary>
     ///     Method to count the number of users associated with a specific account ID.
     /// </summary>
