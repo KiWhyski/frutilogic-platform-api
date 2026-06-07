@@ -5,7 +5,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
-    
+    // include Microsoft FluentAssertions
     <ItemGroup>
       <PackageReference Include="FluentAssertions" Version="8.7.1" />
       <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.9" />
