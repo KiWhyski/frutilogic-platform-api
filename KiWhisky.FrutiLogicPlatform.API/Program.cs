@@ -147,10 +147,23 @@ if (configuredCorsOrigins is null or { Length: 0 })
     }
 }
 
+if (configuredCorsOrigins is null or { Length: 0 })
+{
+    var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL")
+                      ?? Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+    if (!string.IsNullOrWhiteSpace(frontendUrl))
+    {
+        configuredCorsOrigins = frontendUrl
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+}
+
 if (configuredCorsOrigins is null or { Length: 0 } && env.IsDevelopment())
 {
     configuredCorsOrigins =
     [
+        "http://localhost:5173",
+        "http://localhost:4173",
         "https://localhost:7164",
         "http://localhost:5283",
         "https://localhost:44355"
