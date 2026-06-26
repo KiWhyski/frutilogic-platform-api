@@ -819,6 +819,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+// CORS must run after UseRouting and before auth/endpoints.
 app.UseCors("AllowSpecificOrigins");
 
 app.UseRequestAuthorization();
@@ -839,9 +840,9 @@ app.Map("/error", (HttpContext http) =>
     var err = exFeature.Error;
     http.Response.StatusCode = 500;
     return Results.Problem(detail: err.Message, title: "Unhandled exception");
-});
+}).RequireCors("AllowSpecificOrigins");
 
-app.MapControllers();
+app.MapControllers().RequireCors("AllowSpecificOrigins");
 
 try
 {
