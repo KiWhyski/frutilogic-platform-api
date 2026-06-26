@@ -27,9 +27,12 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
         /// <returns>The user entity if found; otherwise, null.</returns>
         public async Task<User?> FindByEmailAsync(string email)
         {
-            return await _collection
-                .Find(user => user.Email.ToString() == email)
-                .FirstOrDefaultAsync();
+            if (string.IsNullOrWhiteSpace(email))
+                return null;
+
+            var normalizedEmail = email.Trim();
+            var filter = Builders<User>.Filter.Eq(u => u.Email, new Shared.Domain.Model.ValueObjects.Email(normalizedEmail));
+            return await _collection.Find(filter).FirstOrDefaultAsync();
         }
 
         /// <summary>
@@ -52,9 +55,29 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
         /// <returns>The user entity if found; otherwise, null.</returns>
         public async Task<User?> FindByEmailOrUsernameAsync(string email, string username)
         {
-            return await _collection
-                .Find(user => user.Email.ToString() == email || user.Username == username)
-                .FirstOrDefaultAsync();
+            var normalizedEmail = email?.Trim() ?? string.Empty;
+            var normalizedUsername = username?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(normalizedEmail) && string.IsNullOrWhiteSpace(normalizedUsername))
+                return null;
+
+            FilterDefinition<User> filter;
+            if (!string.IsNullOrWhiteSpace(normalizedEmail) && !string.IsNullOrWhiteSpace(normalizedUsername))
+            {
+                filter = Builders<User>.Filter.Or(
+                    Builders<User>.Filter.Eq(u => u.Email, new Shared.Domain.Model.ValueObjects.Email(normalizedEmail)),
+                    Builders<User>.Filter.Eq(u => u.Username, normalizedUsername));
+            }
+            else if (!string.IsNullOrWhiteSpace(normalizedEmail))
+            {
+                filter = Builders<User>.Filter.Eq(u => u.Email, new Shared.Domain.Model.ValueObjects.Email(normalizedEmail));
+            }
+            else
+            {
+                filter = Builders<User>.Filter.Eq(u => u.Username, normalizedUsername);
+            }
+
+            return await _collection.Find(filter).FirstOrDefaultAsync();
         }
 
         /// <summary>

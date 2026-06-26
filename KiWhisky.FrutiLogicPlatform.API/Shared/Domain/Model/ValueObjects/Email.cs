@@ -39,6 +39,8 @@ public partial record Email()
         Value = value;
     }
 
+    public override string ToString() => Value;
+
     /// <summary>
     ///     Defines a regex for basic email validation.
     /// </summary>

@@ -157,7 +157,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.Co
         /// <returns>The user entity</returns>
         public async Task<(User user, string token)> Handle(SignInCommand command)
         {
-            var user = await userRepository.FindByEmailAsync(command.Email);
+            var normalizedEmail = command.Email.Trim();
+            var user = await userRepository.FindByEmailAsync(normalizedEmail);
 
             if (user == null || !hashingService.VerifyPassword(command.Password, user.Password))
                 throw new Exception("Invalid username or password");
