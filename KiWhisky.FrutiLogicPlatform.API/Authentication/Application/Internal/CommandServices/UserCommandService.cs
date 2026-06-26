@@ -116,7 +116,7 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.Co
                     userId: user.Id.ToString(),
                     firstName: user.Username,
                     lastName: "",
-                    phoneNumber: "+10000000000",
+                    phoneNumber: "+51999999999",
                     profilePicture: null,
                     assignedRole: "Admin"
                 );
@@ -209,7 +209,7 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.Co
                     userId: user.Id.ToString(),
                     firstName: user.Username,
                     lastName: "",
-                    phoneNumber: "+10000000000",
+                    phoneNumber: "+51999999999",
                     profilePicture: null,
                     assignedRole: "Admin"
                 );

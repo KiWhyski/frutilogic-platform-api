@@ -99,6 +99,7 @@ using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Domain.Services;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Infrastructure.Converters.JSON;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Infrastructure.Persistence.MongoDB.Repositories;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.ACL;
+using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.Configuration;
 
 // Register MongoDB mappings
 GlobalMongoMappingHelper.RegisterAllBoundedContextMappings();
@@ -200,12 +201,15 @@ builder.Services.AddCortexMediator(
 // Registers the MongoDB client as a singleton service
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
-    var cs = builder.Configuration["MongoDB:ConnectionString"]
-             ?? builder.Configuration["MONGO_URL"]
-             ?? builder.Configuration["DATABASE_URL"];
-    return string.IsNullOrEmpty(cs)
-        ? throw new InvalidOperationException("MongoDB connection string is not configured")
-        : new MongoClient(cs);
+    var cs = MongoConnection.ResolveConnectionString(configuration);
+    if (string.IsNullOrEmpty(cs))
+    {
+        throw new InvalidOperationException(
+            "MongoDB connection string is not configured. Set MongoDB__ConnectionString or MONGO_URL in Railway.");
+    }
+
+    logger.LogInformation("MongoDB configured for host: {Host}", MongoConnection.MaskHost(cs));
+    return new MongoClient(cs);
 });
 
 // Register IMongoDatabase

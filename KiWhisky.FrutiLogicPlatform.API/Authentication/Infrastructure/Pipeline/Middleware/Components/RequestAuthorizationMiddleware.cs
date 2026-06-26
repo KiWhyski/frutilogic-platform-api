@@ -39,6 +39,7 @@ public class RequestAuthorizationMiddleware(RequestDelegate next,
         var requestPath = context.Request.Path.Value ?? string.Empty;
         if (requestPath.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) ||
             requestPath.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
+            requestPath.Contains("/api/v1/health", StringComparison.OrdinalIgnoreCase) ||
             requestPath.Equals("/", StringComparison.OrdinalIgnoreCase) ||
             requestPath.EndsWith("/sign-in", StringComparison.OrdinalIgnoreCase) ||
             requestPath.EndsWith("/sign-up", StringComparison.OrdinalIgnoreCase) ||

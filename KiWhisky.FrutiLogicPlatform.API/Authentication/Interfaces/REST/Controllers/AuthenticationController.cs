@@ -116,17 +116,32 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Interfaces.REST.Control
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> SignUp([FromBody] SignUpResource signUpResource)
+        public async Task<IActionResult> SignUp([FromBody] SignUpResource? signUpResource)
         {
+            if (signUpResource is null)
+            {
+                return BadRequest(new { error = "Request body is required." });
+            }
+
             logger.LogInformation("New user registration: {Email}", signUpResource.Email);
 
             try
             {
                 var signUpCommand = SignUpCommandFromResourceAssembler.ToCommandFromResource(signUpResource);
-                var result = await userCommandService.Handle(signUpCommand);
+                await userCommandService.Handle(signUpCommand);
 
                 logger.LogInformation("User registered successfully: {Email}", signUpResource.Email);
                 return Ok(new { message = "User registered successfully" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.LogWarning(ex, "Registration rejected for user: {Email}", signUpResource.Email);
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogWarning(ex, "Invalid registration data for user: {Email}", signUpResource.Email);
+                return BadRequest(new { error = ex.Message });
             }
             catch (Exception ex)
             {
