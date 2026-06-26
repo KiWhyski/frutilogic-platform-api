@@ -4,7 +4,9 @@ using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Repositories;
 using KiWhisky.FrutiLogicPlatform.API.Shared.Domain.Model.ValueObjects;
 using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.Persistence.MongoDB.Configuration;
 using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.Persistence.MongoDB.Repositories;
+using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.RegularExpressions;
 
 namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persistence.Repositories
 {
@@ -31,8 +33,23 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
                 return null;
 
             var normalizedEmail = email.Trim();
-            var filter = Builders<User>.Filter.Eq(u => u.Email, new Shared.Domain.Model.ValueObjects.Email(normalizedEmail));
-            return await _collection.Find(filter).FirstOrDefaultAsync();
+            var escapedEmail = Regex.Escape(normalizedEmail);
+
+            // Email is stored as a plain string in BSON (see EmailSerializer).
+            var stringEmailFilter = Builders<User>.Filter.Regex(
+                "email",
+                new BsonRegularExpression($"^{escapedEmail}$", "i"));
+
+            var user = await _collection.Find(stringEmailFilter).FirstOrDefaultAsync();
+            if (user != null)
+                return user;
+
+            // Legacy shape: { email: { value: "..." } }
+            var legacyEmailFilter = Builders<User>.Filter.Regex(
+                "email.value",
+                new BsonRegularExpression($"^{escapedEmail}$", "i"));
+
+            return await _collection.Find(legacyEmailFilter).FirstOrDefaultAsync();
         }
 
         /// <summary>
@@ -62,15 +79,20 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
                 return null;
 
             FilterDefinition<User> filter;
+            var escapedEmail = Regex.Escape(normalizedEmail);
+            var emailFilter = Builders<User>.Filter.Regex(
+                "email",
+                new BsonRegularExpression($"^{escapedEmail}$", "i"));
+
             if (!string.IsNullOrWhiteSpace(normalizedEmail) && !string.IsNullOrWhiteSpace(normalizedUsername))
             {
                 filter = Builders<User>.Filter.Or(
-                    Builders<User>.Filter.Eq(u => u.Email, new Shared.Domain.Model.ValueObjects.Email(normalizedEmail)),
+                    emailFilter,
                     Builders<User>.Filter.Eq(u => u.Username, normalizedUsername));
             }
             else if (!string.IsNullOrWhiteSpace(normalizedEmail))
             {
-                filter = Builders<User>.Filter.Eq(u => u.Email, new Shared.Domain.Model.ValueObjects.Email(normalizedEmail));
+                filter = emailFilter;
             }
             else
             {

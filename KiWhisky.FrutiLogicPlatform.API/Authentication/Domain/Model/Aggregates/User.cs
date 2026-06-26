@@ -43,6 +43,16 @@ public partial class User : Entity
     /// </summary>
     public AccountId AccountId { get; set; }
 
+    /// <summary>MongoDB deserialization only.</summary>
+    [BsonConstructor]
+    private User()
+    {
+        Email = null!;
+        Username = string.Empty;
+        Password = string.Empty;
+        AccountId = null!;
+    }
+
     /// <summary>
     ///     Default constructor to create a new user (Admin).
     /// </summary>

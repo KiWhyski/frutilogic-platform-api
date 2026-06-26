@@ -160,7 +160,12 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.Co
             var normalizedEmail = command.Email.Trim();
             var user = await userRepository.FindByEmailAsync(normalizedEmail);
 
-            if (user == null || !hashingService.VerifyPassword(command.Password, user.Password))
+            if (user == null)
+                throw new Exception("Invalid username or password");
+
+            if (string.IsNullOrWhiteSpace(user.Password) ||
+                !hashingService.VerifyPassword(command.Password, user.Password))
+                throw new Exception("Invalid username or password");
                 throw new Exception("Invalid username or password");
 
             var token = tokenService.GenerateToken(user);
