@@ -100,6 +100,7 @@ using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Infrastructure.Convert
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Infrastructure.Persistence.MongoDB.Repositories;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.ACL;
 using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.Configuration;
+using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.FileStorage.Cloudinary.Services;
 
 // Register MongoDB mappings
 GlobalMongoMappingHelper.RegisterAllBoundedContextMappings();
@@ -302,6 +303,19 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 
 // Cloudinary Settings Configuration
 builder.Services.Configure<CloudinarySettings>(configuration.GetSection("CloudinarySettings"));
+var cloudinarySettings = configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
+if (cloudinarySettings.IsConfigured())
+{
+    builder.Services.AddScoped<IProfilesImageService, ProfilesImageService>();
+    builder.Services.AddScoped<IInventoryImageService, InventoryImageService>();
+    logger.LogInformation("Cloudinary image storage enabled.");
+}
+else
+{
+    builder.Services.AddScoped<IProfilesImageService, NoOpProfilesImageService>();
+    builder.Services.AddScoped<IInventoryImageService, NoOpInventoryImageService>();
+    logger.LogWarning("Cloudinary not configured. Auth and core API will work; image uploads are disabled.");
+}
 
 // MercadoPago Settings Configuration
 builder.Services.Configure<MercadoPagoSettings>(builder.Configuration.GetSection("MercadoPagoSettings"));
@@ -334,7 +348,6 @@ builder.Services.AddScoped<IInventoryCommandService, InventoryCommandService>();
 builder.Services.AddScoped<IInventoryQueryService, InventoryQueryService>();
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 
-builder.Services.AddScoped<IInventoryImageService, InventoryImageService>();
 builder.Services.AddScoped<ExternalAlertsAndNotificationsService>();
 
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
@@ -401,7 +414,6 @@ builder.Services.AddScoped<ILowStockService, LowStockService>();
 //
 // Bounded Context Profile Management
 //
-builder.Services.AddScoped<IProfilesImageService, ProfilesImageService>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IProfileQueryService, ProfileQueryService>();
 builder.Services.AddScoped<IProfileCommandService, ProfileCommandService>();
