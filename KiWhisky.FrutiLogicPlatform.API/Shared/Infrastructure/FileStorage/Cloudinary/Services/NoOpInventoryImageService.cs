@@ -1,4 +1,5 @@
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Application.Internal.OutboundServices.FileStorage;
+using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.FileStorage;
 
 namespace KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.FileStorage.Cloudinary.Services;
 
@@ -7,8 +8,7 @@ namespace KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.FileStorage.Clou
 /// </summary>
 public class NoOpInventoryImageService : IInventoryImageService
 {
-    public string UploadImage(IFormFile file) =>
-        throw new InvalidOperationException("Image upload requires Cloudinary configuration.");
+    public string UploadImage(IFormFile file) => DefaultImageUrls.ProfilePicture;
 
     public bool DeleteImage(string imageUrl) => false;
 }

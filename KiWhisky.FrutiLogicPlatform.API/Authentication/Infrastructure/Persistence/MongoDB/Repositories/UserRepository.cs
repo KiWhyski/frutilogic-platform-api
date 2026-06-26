@@ -33,23 +33,16 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
                 return null;
 
             var normalizedEmail = email.Trim();
-            var escapedEmail = Regex.Escape(normalizedEmail);
+            var objectId = await FindUserObjectIdByEmailAsync(normalizedEmail);
+            if (objectId == null)
+                return null;
 
-            // Email is stored as a plain string in BSON (see EmailSerializer).
-            var stringEmailFilter = Builders<User>.Filter.Regex(
-                "email",
-                new BsonRegularExpression($"^{escapedEmail}$", "i"));
+            var user = await _collection.Find(u => u.Id == objectId.Value).FirstOrDefaultAsync();
+            if (user == null)
+                return null;
 
-            var user = await _collection.Find(stringEmailFilter).FirstOrDefaultAsync();
-            if (user != null)
-                return user;
-
-            // Legacy shape: { email: { value: "..." } }
-            var legacyEmailFilter = Builders<User>.Filter.Regex(
-                "email.value",
-                new BsonRegularExpression($"^{escapedEmail}$", "i"));
-
-            return await _collection.Find(legacyEmailFilter).FirstOrDefaultAsync();
+            await EnsurePasswordLoadedAsync(user, objectId.Value);
+            return user;
         }
 
         /// <summary>
@@ -75,31 +68,17 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
             var normalizedEmail = email?.Trim() ?? string.Empty;
             var normalizedUsername = username?.Trim() ?? string.Empty;
 
-            if (string.IsNullOrWhiteSpace(normalizedEmail) && string.IsNullOrWhiteSpace(normalizedUsername))
+            if (!string.IsNullOrWhiteSpace(normalizedEmail))
+            {
+                var byEmail = await FindByEmailAsync(normalizedEmail);
+                if (byEmail != null)
+                    return byEmail;
+            }
+
+            if (string.IsNullOrWhiteSpace(normalizedUsername))
                 return null;
 
-            FilterDefinition<User> filter;
-            var escapedEmail = Regex.Escape(normalizedEmail);
-            var emailFilter = Builders<User>.Filter.Regex(
-                "email",
-                new BsonRegularExpression($"^{escapedEmail}$", "i"));
-
-            if (!string.IsNullOrWhiteSpace(normalizedEmail) && !string.IsNullOrWhiteSpace(normalizedUsername))
-            {
-                filter = Builders<User>.Filter.Or(
-                    emailFilter,
-                    Builders<User>.Filter.Eq(u => u.Username, normalizedUsername));
-            }
-            else if (!string.IsNullOrWhiteSpace(normalizedEmail))
-            {
-                filter = emailFilter;
-            }
-            else
-            {
-                filter = Builders<User>.Filter.Eq(u => u.Username, normalizedUsername);
-            }
-
-            return await _collection.Find(filter).FirstOrDefaultAsync();
+            return await FindByUsernameAsync(normalizedUsername);
         }
 
         /// <summary>
@@ -155,6 +134,48 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
         {
             var filter = Builders<User>.Filter.Eq(u => u.AccountId, accountId);
             return (int)await _collection.CountDocumentsAsync(filter);
+        }
+
+        private async Task<ObjectId?> FindUserObjectIdByEmailAsync(string normalizedEmail)
+        {
+            var collectionName = _collection.CollectionNamespace.CollectionName;
+            var bsonCollection = _collection.Database.GetCollection<BsonDocument>(collectionName);
+            var escapedEmail = Regex.Escape(normalizedEmail);
+
+            var emailFilter = Builders<BsonDocument>.Filter.Or(
+                Builders<BsonDocument>.Filter.Eq("email", normalizedEmail),
+                Builders<BsonDocument>.Filter.Eq("Email", normalizedEmail),
+                Builders<BsonDocument>.Filter.Regex("email", new BsonRegularExpression($"^{escapedEmail}$", "i")),
+                Builders<BsonDocument>.Filter.Regex("Email", new BsonRegularExpression($"^{escapedEmail}$", "i")),
+                Builders<BsonDocument>.Filter.Eq("email.value", normalizedEmail),
+                Builders<BsonDocument>.Filter.Eq("email.Value", normalizedEmail));
+
+            var document = await bsonCollection.Find(emailFilter).FirstOrDefaultAsync();
+            if (document == null || !document.Contains("_id"))
+                return null;
+
+            return document["_id"].AsObjectId;
+        }
+
+        private async Task EnsurePasswordLoadedAsync(User user, ObjectId objectId)
+        {
+            if (!string.IsNullOrWhiteSpace(user.Password))
+                return;
+
+            var collectionName = _collection.CollectionNamespace.CollectionName;
+            var bsonCollection = _collection.Database.GetCollection<BsonDocument>(collectionName);
+            var document = await bsonCollection
+                .Find(Builders<BsonDocument>.Filter.Eq("_id", objectId))
+                .Project(Builders<BsonDocument>.Projection.Include("password").Include("Password"))
+                .FirstOrDefaultAsync();
+
+            if (document == null)
+                return;
+
+            if (document.TryGetValue("password", out var passwordValue) && passwordValue.IsString)
+                user.Password = passwordValue.AsString;
+            else if (document.TryGetValue("Password", out var legacyPassword) && legacyPassword.IsString)
+                user.Password = legacyPassword.AsString;
         }
     }
 }

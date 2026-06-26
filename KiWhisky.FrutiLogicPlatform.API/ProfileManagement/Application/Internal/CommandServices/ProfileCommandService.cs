@@ -3,6 +3,7 @@ using KiWhisky.FrutiLogicPlatform.API.ProfileManagement.Domain.Model.Aggregates;
 using KiWhisky.FrutiLogicPlatform.API.ProfileManagement.Domain.Model.Commands;
 using KiWhisky.FrutiLogicPlatform.API.ProfileManagement.Domain.Repositories;
 using KiWhisky.FrutiLogicPlatform.API.ProfileManagement.Domain.Services;
+using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.FileStorage;
 using MongoDB.Bson;
 
 namespace KiWhisky.FrutiLogicPlatform.API.ProfileManagement.Application.Internal.CommandServices;
@@ -35,7 +36,7 @@ public class ProfileCommandService(
 
         var imageUrl = command.ProfilePicture != null
             ? profilesImageService.UploadImage(command.ProfilePicture)
-            : "https://res.cloudinary.com/deuy1pr9e/image/upload/v1759710739/Default-profile_xbpv55.jpg";
+            : DefaultImageUrls.ProfilePicture;
 
         // Creates the profile with the given details
         var profile = new Profile(command, imageUrl);

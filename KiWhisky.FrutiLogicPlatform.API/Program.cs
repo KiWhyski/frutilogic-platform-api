@@ -301,21 +301,10 @@ builder.Services.AddScoped<ITokenService, TokenService>();
  
 
 
-// Cloudinary Settings Configuration
-builder.Services.Configure<CloudinarySettings>(configuration.GetSection("CloudinarySettings"));
-var cloudinarySettings = configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
-if (cloudinarySettings.IsConfigured())
-{
-    builder.Services.AddScoped<IProfilesImageService, ProfilesImageService>();
-    builder.Services.AddScoped<IInventoryImageService, InventoryImageService>();
-    logger.LogInformation("Cloudinary image storage enabled.");
-}
-else
-{
-    builder.Services.AddScoped<IProfilesImageService, NoOpProfilesImageService>();
-    builder.Services.AddScoped<IInventoryImageService, NoOpInventoryImageService>();
-    logger.LogWarning("Cloudinary not configured. Auth and core API will work; image uploads are disabled.");
-}
+// Image storage disabled (no Cloudinary required for auth or profiles)
+builder.Services.AddScoped<IProfilesImageService, NoOpProfilesImageService>();
+builder.Services.AddScoped<IInventoryImageService, NoOpInventoryImageService>();
+logger.LogInformation("Image uploads disabled; using placeholder images.");
 
 // MercadoPago Settings Configuration
 builder.Services.Configure<MercadoPagoSettings>(builder.Configuration.GetSection("MercadoPagoSettings"));

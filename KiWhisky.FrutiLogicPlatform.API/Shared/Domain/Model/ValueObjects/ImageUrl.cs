@@ -50,7 +50,9 @@ public record ImageUrl()
             throw new ValueObjectValidationException(nameof(ImageUrl), "Couldn't create the uri.");
         }
         
-        return !uriResult.Host.Equals("res.cloudinary.com", StringComparison.OrdinalIgnoreCase) ? throw new ValueObjectValidationException(nameof(ImageUrl), "Image URL must be from Cloudinary CDN.") : uriResult;
+        return uriResult.Scheme is not ("https" or "http")
+            ? throw new ValueObjectValidationException(nameof(ImageUrl), "Image URL must use http or https.")
+            : uriResult;
     }
     
     /// <summary>
