@@ -39,7 +39,13 @@ public class RequestAuthorizationMiddleware(RequestDelegate next,
         var requestPath = context.Request.Path.Value ?? string.Empty;
         if (requestPath.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) ||
             requestPath.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
-            requestPath.Equals("/", StringComparison.OrdinalIgnoreCase))
+            requestPath.Equals("/", StringComparison.OrdinalIgnoreCase) ||
+            requestPath.EndsWith("/sign-in", StringComparison.OrdinalIgnoreCase) ||
+            requestPath.EndsWith("/sign-up", StringComparison.OrdinalIgnoreCase) ||
+            requestPath.Contains("/users/recovery-code", StringComparison.OrdinalIgnoreCase) ||
+            requestPath.Contains("/users/verify-recovery-code", StringComparison.OrdinalIgnoreCase) ||
+            requestPath.Contains("/users/reset-password", StringComparison.OrdinalIgnoreCase) ||
+            requestPath.Contains("/authentication/google", StringComparison.OrdinalIgnoreCase))
         {
             await next(context);
             return;

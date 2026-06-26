@@ -745,6 +745,27 @@ else
 
 var app = builder.Build();
 
+var corsOriginsSet = new HashSet<string>(
+    configuredCorsOrigins ?? [],
+    StringComparer.OrdinalIgnoreCase);
+var allowAnyCorsOrigin = corsOriginsSet.Count == 0 && !env.IsDevelopment();
+
+app.Use(async (context, next) =>
+{
+    var origin = context.Request.Headers.Origin.FirstOrDefault();
+    if (!string.IsNullOrEmpty(origin) && (allowAnyCorsOrigin || corsOriginsSet.Contains(origin)))
+    {
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers["Access-Control-Allow-Origin"] = origin;
+            context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+            return Task.CompletedTask;
+        });
+    }
+
+    await next();
+});
+
 using (var scope = app.Services.CreateScope())
 {
     var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
@@ -796,6 +817,8 @@ app.UseRouting();
 
 app.UseCors("AllowSpecificOrigins");
 
+app.UseRequestAuthorization();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -813,9 +836,6 @@ app.Map("/error", (HttpContext http) =>
     http.Response.StatusCode = 500;
     return Results.Problem(detail: err.Message, title: "Unhandled exception");
 });
-
-// Configure the Authentication HTTP request pipeline.
-app.UseRequestAuthorization();
 
 app.MapControllers();
 
