@@ -794,10 +794,10 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseCors("AllowSpecificOrigins");
+
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.UseCors("AllowSpecificOrigins");
 
 if (!string.IsNullOrWhiteSpace(googleClientId))
 {
