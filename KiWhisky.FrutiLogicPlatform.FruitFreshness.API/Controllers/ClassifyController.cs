@@ -39,6 +39,10 @@ namespace FruitFreshness.Controllers
                     modelVersion = result.ModelVersion
                 });
             }
+            catch (System.InvalidOperationException ex)
+            {
+                return StatusCode(503, new { error = ex.Message });
+            }
             finally
             {
                 try { System.IO.File.Delete(tempPath); } catch { }
