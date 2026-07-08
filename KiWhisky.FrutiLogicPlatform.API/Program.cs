@@ -172,13 +172,26 @@ if (configuredCorsOrigins is null or { Length: 0 } && env.IsDevelopment())
     ];
 }
 
+bool IsAllowedCorsOrigin(string? origin, IReadOnlyCollection<string> allowedOrigins)
+{
+    if (string.IsNullOrWhiteSpace(origin)) return false;
+    if (allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)) return true;
+    if (Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+        && uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+    return false;
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policyBuilder =>
     {
-        if (configuredCorsOrigins is { Length: > 0 })
+        var allowedOrigins = configuredCorsOrigins ?? [];
+        if (allowedOrigins.Length > 0)
         {
-            policyBuilder.WithOrigins(configuredCorsOrigins)
+            policyBuilder.SetIsOriginAllowed(origin => IsAllowedCorsOrigin(origin, allowedOrigins))
                 .AllowAnyMethod()
                 .AllowAnyHeader()
                 .AllowCredentials();
@@ -758,7 +771,7 @@ var allowAnyCorsOrigin = corsOriginsSet.Count == 0 && !env.IsDevelopment();
 app.Use(async (context, next) =>
 {
     var origin = context.Request.Headers.Origin.FirstOrDefault();
-    if (!string.IsNullOrEmpty(origin) && (allowAnyCorsOrigin || corsOriginsSet.Contains(origin)))
+    if (!string.IsNullOrEmpty(origin) && (allowAnyCorsOrigin || IsAllowedCorsOrigin(origin, corsOriginsSet)))
     {
         context.Response.OnStarting(() =>
         {
