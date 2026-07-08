@@ -109,4 +109,9 @@ public interface IPaymentAndSubscriptionsFacade
     /// Asynchronously retrieves a business by its associated account identifier.
     /// </summary>
     Task<Business?> FindBusinessByAccountIdAsync(string accountId);
+
+    /// <summary>
+    /// Activates the free subscription plan for a newly registered account.
+    /// </summary>
+    Task ActivateFreePlanForAccountAsync(string accountId);
 }

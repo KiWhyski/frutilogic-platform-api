@@ -239,6 +239,13 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.Co
                 );
                 
                 await userRepository.AddAsync(user);
+
+                if (string.Equals(command.Role, EAccountRole.LiquorStoreOwner.ToString(), StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(command.Role, EAccountRole.Supplier.ToString(), StringComparison.OrdinalIgnoreCase))
+                {
+                    await paymentAndSubscriptionsFacade.ActivateFreePlanForAccountAsync(account.Id.ToString());
+                }
+
                 return user;
             }
             catch (Exception ex)

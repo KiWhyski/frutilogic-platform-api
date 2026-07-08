@@ -2,6 +2,7 @@ using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Domain.Model.Aggre
 using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Domain.Model.Commands;
 using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Domain.Model.Entities;
 using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Domain.Model.Queries;
+using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Domain.Model.ValueObjects;
 using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Domain.Services;
 using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Interfaces.ACL.Services;
 using KiWhisky.FrutiLogicPlatform.API.Shared.Domain.Model.ValueObjects;
@@ -17,7 +18,9 @@ public class PaymentAndSubscriptionsFacade(
     IBusinessCommandService businessCommandService,
     ISubscriptionQueryService subscriptionQueryService,
     IAccountQueryService accountQueryService,
-    IBusinessQueryService businessQueryService
+    IBusinessQueryService businessQueryService,
+    ISubscriptionsCommandService subscriptionsCommandService,
+    IPlanQueryService planQueryService
 ) : IPaymentAndSubscriptionsFacade
 {
     /// <summary>
@@ -107,5 +110,23 @@ public class PaymentAndSubscriptionsFacade(
     {
         var query = new GetBusinessByAccountIdQuery(accountId);
         return await businessQueryService.Handle(query);
+    }
+
+    public async Task ActivateFreePlanForAccountAsync(string accountId)
+    {
+        var plans = await planQueryService.Handle(new GetAllPlansQuery());
+        var freePlan = plans.FirstOrDefault(p => p.PlanType == EPlanType.Free);
+        if (freePlan is null)
+            return;
+
+        try
+        {
+            await subscriptionsCommandService.Handle(
+                new InitialSubscriptionCommand(accountId, freePlan.Id.ToString()));
+        }
+        catch (Exception ex) when (ex.Message.Contains("active subscription already exists", StringComparison.OrdinalIgnoreCase))
+        {
+            // Account already has a subscription — nothing to do.
+        }
     }
 }
