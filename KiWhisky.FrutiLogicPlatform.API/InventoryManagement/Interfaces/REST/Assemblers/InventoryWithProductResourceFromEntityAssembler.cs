@@ -1,6 +1,6 @@
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Model.Aggregates;
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Interfaces.REST.Resources;
-using Microsoft.OpenApi.Extensions;
+using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.Extensions;
 
 namespace KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Interfaces.REST.Assemblers;
 

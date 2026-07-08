@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Model.ValueObjects;
-using Microsoft.OpenApi.Extensions;
+using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.Extensions;
 
 namespace KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Infrastructure.Converters.JSON;
 
