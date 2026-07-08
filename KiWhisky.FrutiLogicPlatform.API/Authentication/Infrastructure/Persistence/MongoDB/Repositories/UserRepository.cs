@@ -33,15 +33,26 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
                 return null;
 
             var normalizedEmail = email.Trim();
+            Console.WriteLine($"[UserRepo] FindByEmailAsync: searching '{normalizedEmail}'");
+
             var objectId = await FindUserObjectIdByEmailAsync(normalizedEmail);
             if (objectId == null)
+            {
+                Console.WriteLine($"[UserRepo] FindByEmailAsync: objectId not found for '{normalizedEmail}'");
                 return null;
+            }
 
+            Console.WriteLine($"[UserRepo] FindByEmailAsync: objectId found = {objectId}");
             var user = await _collection.Find(u => u.Id == objectId.Value).FirstOrDefaultAsync();
             if (user == null)
+            {
+                Console.WriteLine($"[UserRepo] FindByEmailAsync: user not found by objectId {objectId}");
                 return null;
+            }
 
+            Console.WriteLine($"[UserRepo] FindByEmailAsync: user loaded, Password empty = {string.IsNullOrWhiteSpace(user.Password)}");
             await EnsurePasswordLoadedAsync(user, objectId.Value);
+            Console.WriteLine($"[UserRepo] FindByEmailAsync: after EnsurePassword, Password empty = {string.IsNullOrWhiteSpace(user.Password)}");
             return user;
         }
 
@@ -143,12 +154,18 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
             var escapedEmail = Regex.Escape(normalizedEmail);
 
             var emailFilter = Builders<BsonDocument>.Filter.Or(
+                // Stored as plain string
                 Builders<BsonDocument>.Filter.Eq("email", normalizedEmail),
                 Builders<BsonDocument>.Filter.Eq("Email", normalizedEmail),
+                // Case-insensitive regex on plain string fields
                 Builders<BsonDocument>.Filter.Regex("email", new BsonRegularExpression($"^{escapedEmail}$", "i")),
                 Builders<BsonDocument>.Filter.Regex("Email", new BsonRegularExpression($"^{escapedEmail}$", "i")),
+                // Stored as nested value object: { "email": { "value": "..." } }
                 Builders<BsonDocument>.Filter.Eq("email.value", normalizedEmail),
-                Builders<BsonDocument>.Filter.Eq("email.Value", normalizedEmail));
+                Builders<BsonDocument>.Filter.Eq("email.Value", normalizedEmail),
+                // Stored as nested value object: { "Email": { "Value": "..." } } (PascalCase C# serialization)
+                Builders<BsonDocument>.Filter.Eq("Email.value", normalizedEmail),
+                Builders<BsonDocument>.Filter.Eq("Email.Value", normalizedEmail));
 
             var document = await bsonCollection.Find(emailFilter).FirstOrDefaultAsync();
             if (document == null || !document.Contains("_id"))

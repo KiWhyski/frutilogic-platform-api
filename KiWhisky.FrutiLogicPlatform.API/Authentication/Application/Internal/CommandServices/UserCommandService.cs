@@ -158,18 +158,36 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.Co
         public async Task<(User user, string token)> Handle(SignInCommand command)
         {
             var normalizedEmail = command.Email.Trim();
+            Console.WriteLine($"[SignIn] Looking for email: '{normalizedEmail}'");
+
             var user = await userRepository.FindByEmailAsync(normalizedEmail);
 
             if (user == null)
+            {
+                Console.WriteLine($"[SignIn] ERROR: User not found for email '{normalizedEmail}'");
                 throw new Exception("Invalid username or password");
+            }
 
-            if (string.IsNullOrWhiteSpace(user.Password) ||
-                !hashingService.VerifyPassword(command.Password, user.Password))
+            Console.WriteLine($"[SignIn] User found. Id={user.Id}, Username={user.Username}, PasswordEmpty={string.IsNullOrWhiteSpace(user.Password)}");
+
+            if (string.IsNullOrWhiteSpace(user.Password))
+            {
+                Console.WriteLine($"[SignIn] ERROR: Password field is empty for user '{normalizedEmail}'");
                 throw new Exception("Invalid username or password");
+            }
+
+            var passwordMatch = hashingService.VerifyPassword(command.Password, user.Password);
+            Console.WriteLine($"[SignIn] BCrypt.Verify result: {passwordMatch}");
+
+            if (!passwordMatch)
+            {
+                Console.WriteLine($"[SignIn] ERROR: Password mismatch for user '{normalizedEmail}'");
                 throw new Exception("Invalid username or password");
+            }
 
             var token = tokenService.GenerateToken(user);
-            
+            Console.WriteLine($"[SignIn] SUCCESS: Token generated for user '{normalizedEmail}'");
+
             return (user, token);
         }
 

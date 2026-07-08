@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Crea un modelo ONNX mínimo válido para ML.NET (clasificador binario 224x224 RGB)
+Crea un modelo ONNX mínimo válido para ML.NET (clasificador binario 224x224 RGB).
+Heurística demo: imágenes más brillantes -> "en buen estado".
 """
 import sys
 from pathlib import Path
@@ -18,7 +19,7 @@ except ImportError:
     from onnx import helper, TensorProto
 
 def create_minimal_onnx():
-    """Crea un modelo ONNX binario para imagen 224x224x3"""
+    """Crea un modelo ONNX binario para imagen 224x224x3 (IR compatible con ML.NET antiguo)"""
     
     # Entrada: imagen 224x224x3 (float32)
     X = helper.make_tensor_value_info('input', TensorProto.FLOAT, [1, 224, 224, 3])
@@ -26,26 +27,30 @@ def create_minimal_onnx():
     # Salida: 2 clases (logits)
     Y = helper.make_tensor_value_info('output', TensorProto.FLOAT, [1, 2])
     
-    # Crear un nodo simple que redimensiona la entrada
-    # Reshapar [1,224,224,3] → [1, 150528] → [1, 2]
+    # Reshape [1,224,224,3] -> [1,150528]
+    shape_init = np.array([1, 150528], dtype=np.int64)
+    shape_tensor = helper.make_tensor(
+        name='reshape_shape',
+        data_type=TensorProto.INT64,
+        dims=[2],
+        vals=shape_init
+    )
+
     reshape_node = helper.make_node(
         'Reshape',
-        inputs=['input'],
+        inputs=['input', 'reshape_shape'],
         outputs=['reshaped'],
-        dims=[1, -1]
     )
     
-    # Reducir dimensión con GlobalAveragePool
-    pool_node = helper.make_node(
-        'GlobalAveragePool',
-        inputs=['reshaped_view'],
-        outputs=['pooled']
-    )
-    
-    # Crear weights para una capa densa: (150528, 2)
-    # Para simplificar, usar Gemm (matrix multiply + bias)
-    W_init = np.random.randn(150528, 2).astype(np.float32) * 0.001
-    b_init = np.array([0.5, 0.5], dtype=np.float32)
+    # Heurística determinista: usar brillo promedio para separar clases.
+    # bad_logit  = 0.55 - mean_brightness
+    # good_logit = mean_brightness - 0.55
+    n_features = 224 * 224 * 3
+    w = 1.0 / float(n_features)
+    W_init = np.zeros((n_features, 2), dtype=np.float32)
+    W_init[:, 0] = -w  # clase 0: "por echarse a perder"
+    W_init[:, 1] = +w  # clase 1: "en buen estado"
+    b_init = np.array([0.55, -0.55], dtype=np.float32)
     
     W_tensor = helper.make_tensor(
         name='W',
@@ -79,15 +84,18 @@ def create_minimal_onnx():
         'fruit_classifier',
         [X],
         [Y],
-        [W_tensor, b_tensor]
+        [shape_tensor, W_tensor, b_tensor]
     )
     
     # Crear el modelo
     model_def = helper.make_model(
         graph_def,
         producer_name='custom',
-        opset_imports=[helper.make_opsetid("", 12)]
+        opset_imports=[helper.make_opsetid("", 10)]
     )
+
+    # Fuerza IR compatible con runtimes que reportan max IR version 10.
+    model_def.ir_version = 10
     
     # Guardar
     output_path = Path("KiWhisky.FrutiLogicPlatform.FruitFreshness.API/models/fruit_model.onnx")
