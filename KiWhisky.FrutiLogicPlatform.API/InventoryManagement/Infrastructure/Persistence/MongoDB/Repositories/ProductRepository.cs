@@ -40,7 +40,7 @@ public class ProductRepository(AppDbContext context, IMediator mediator) : BaseR
     {
         var filter = Builders<Product>.Filter.And(
             Builders<Product>.Filter.Eq(x => x.Name, name.GetValue()),
-            Builders<Product>.Filter.Eq(x => x.AccountId, accountId)
+            Builders<Product>.Filter.Eq("accountId", accountId.GetId)
         );
         return await _productCollection.Find(filter).AnyAsync();
     }
@@ -115,7 +115,8 @@ public class ProductRepository(AppDbContext context, IMediator mediator) : BaseR
     /// </returns>
     public async Task<ICollection<Product>> FindByAccountIdAsync(AccountId accountId)
     {
-        var filter = Builders<Product>.Filter.Eq(p => p.AccountId, accountId);
+        // Compare the stored string accountId (serializer), not the value-object instance.
+        var filter = Builders<Product>.Filter.Eq("accountId", accountId.GetId);
         return await _productCollection.Find(filter).ToListAsync();
     }
 
@@ -140,7 +141,7 @@ public class ProductRepository(AppDbContext context, IMediator mediator) : BaseR
     /// </returns>
     public Task<int> CountByAccountIdAsync(AccountId accountId)
     {
-        var filter = Builders<Product>.Filter.Eq(w => w.AccountId, accountId);
+        var filter = Builders<Product>.Filter.Eq("accountId", accountId.GetId);
         return _productCollection.CountDocumentsAsync(filter).ContinueWith(t => (int)t.Result);
     }
 }
