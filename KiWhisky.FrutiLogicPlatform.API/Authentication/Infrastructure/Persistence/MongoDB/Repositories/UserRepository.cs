@@ -5,6 +5,7 @@ using KiWhisky.FrutiLogicPlatform.API.Shared.Domain.Model.ValueObjects;
 using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.Persistence.MongoDB.Configuration;
 using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.Persistence.MongoDB.Repositories;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using System.Text.RegularExpressions;
 
@@ -32,28 +33,12 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
             if (string.IsNullOrWhiteSpace(email))
                 return null;
 
-            var normalizedEmail = email.Trim();
-            Console.WriteLine($"[UserRepo] FindByEmailAsync: searching '{normalizedEmail}'");
-
+            var normalizedEmail = email.Trim().ToLowerInvariant();
             var objectId = await FindUserObjectIdByEmailAsync(normalizedEmail);
             if (objectId == null)
-            {
-                Console.WriteLine($"[UserRepo] FindByEmailAsync: objectId not found for '{normalizedEmail}'");
                 return null;
-            }
 
-            Console.WriteLine($"[UserRepo] FindByEmailAsync: objectId found = {objectId}");
-            var user = await _collection.Find(u => u.Id == objectId.Value).FirstOrDefaultAsync();
-            if (user == null)
-            {
-                Console.WriteLine($"[UserRepo] FindByEmailAsync: user not found by objectId {objectId}");
-                return null;
-            }
-
-            Console.WriteLine($"[UserRepo] FindByEmailAsync: user loaded, Password empty = {string.IsNullOrWhiteSpace(user.Password)}");
-            await EnsurePasswordLoadedAsync(user, objectId.Value);
-            Console.WriteLine($"[UserRepo] FindByEmailAsync: after EnsurePassword, Password empty = {string.IsNullOrWhiteSpace(user.Password)}");
-            return user;
+            return await LoadUserDocumentByIdAsync(objectId.Value);
         }
 
         /// <summary>
@@ -63,9 +48,14 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
         /// <returns>The user entity if found; otherwise, null.</returns>
         public async Task<User?> FindByUsernameAsync(string username)
         {
-            return await _collection
-                .Find(user => user.Username == username)
+            var user = await _collection
+                .Find(u => u.Username == username)
                 .FirstOrDefaultAsync();
+
+            if (user == null)
+                return null;
+
+            return await LoadUserDocumentByIdAsync(user.Id);
         }
 
         /// <summary>
@@ -76,7 +66,7 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
         /// <returns>The user entity if found; otherwise, null.</returns>
         public async Task<User?> FindByEmailOrUsernameAsync(string email, string username)
         {
-            var normalizedEmail = email?.Trim() ?? string.Empty;
+            var normalizedEmail = email?.Trim().ToLowerInvariant() ?? string.Empty;
             var normalizedUsername = username?.Trim() ?? string.Empty;
 
             if (!string.IsNullOrWhiteSpace(normalizedEmail))
@@ -147,6 +137,41 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
             return (int)await _collection.CountDocumentsAsync(filter);
         }
 
+        private async Task<User?> LoadUserDocumentByIdAsync(ObjectId objectId)
+        {
+            var collectionName = _collection.CollectionNamespace.CollectionName;
+            var bsonCollection = _collection.Database.GetCollection<BsonDocument>(collectionName);
+            var document = await bsonCollection
+                .Find(Builders<BsonDocument>.Filter.Eq("_id", objectId))
+                .FirstOrDefaultAsync();
+
+            if (document == null)
+                return null;
+
+            var user = BsonSerializer.Deserialize<User>(document);
+            ApplyPasswordFromDocument(user, document);
+            return user;
+        }
+
+        private static void ApplyPasswordFromDocument(User user, BsonDocument document)
+        {
+            if (!string.IsNullOrWhiteSpace(user.Password))
+                return;
+
+            foreach (var key in new[] { "password", "Password", "hashedPassword", "HashedPassword" })
+            {
+                if (!document.TryGetValue(key, out var value) || !value.IsString)
+                    continue;
+
+                var storedPassword = value.AsString;
+                if (string.IsNullOrWhiteSpace(storedPassword))
+                    continue;
+
+                user.Password = storedPassword;
+                return;
+            }
+        }
+
         private async Task<ObjectId?> FindUserObjectIdByEmailAsync(string normalizedEmail)
         {
             var collectionName = _collection.CollectionNamespace.CollectionName;
@@ -154,16 +179,12 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
             var escapedEmail = Regex.Escape(normalizedEmail);
 
             var emailFilter = Builders<BsonDocument>.Filter.Or(
-                // Stored as plain string
                 Builders<BsonDocument>.Filter.Eq("email", normalizedEmail),
                 Builders<BsonDocument>.Filter.Eq("Email", normalizedEmail),
-                // Case-insensitive regex on plain string fields
                 Builders<BsonDocument>.Filter.Regex("email", new BsonRegularExpression($"^{escapedEmail}$", "i")),
                 Builders<BsonDocument>.Filter.Regex("Email", new BsonRegularExpression($"^{escapedEmail}$", "i")),
-                // Stored as nested value object: { "email": { "value": "..." } }
                 Builders<BsonDocument>.Filter.Eq("email.value", normalizedEmail),
                 Builders<BsonDocument>.Filter.Eq("email.Value", normalizedEmail),
-                // Stored as nested value object: { "Email": { "Value": "..." } } (PascalCase C# serialization)
                 Builders<BsonDocument>.Filter.Eq("Email.value", normalizedEmail),
                 Builders<BsonDocument>.Filter.Eq("Email.Value", normalizedEmail));
 
@@ -172,27 +193,6 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persiste
                 return null;
 
             return document["_id"].AsObjectId;
-        }
-
-        private async Task EnsurePasswordLoadedAsync(User user, ObjectId objectId)
-        {
-            if (!string.IsNullOrWhiteSpace(user.Password))
-                return;
-
-            var collectionName = _collection.CollectionNamespace.CollectionName;
-            var bsonCollection = _collection.Database.GetCollection<BsonDocument>(collectionName);
-            var document = await bsonCollection
-                .Find(Builders<BsonDocument>.Filter.Eq("_id", objectId))
-                .Project(Builders<BsonDocument>.Projection.Include("password").Include("Password"))
-                .FirstOrDefaultAsync();
-
-            if (document == null)
-                return;
-
-            if (document.TryGetValue("password", out var passwordValue) && passwordValue.IsString)
-                user.Password = passwordValue.AsString;
-            else if (document.TryGetValue("Password", out var legacyPassword) && legacyPassword.IsString)
-                user.Password = legacyPassword.AsString;
         }
     }
 }

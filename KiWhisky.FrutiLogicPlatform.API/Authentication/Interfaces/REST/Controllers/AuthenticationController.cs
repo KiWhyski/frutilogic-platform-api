@@ -113,7 +113,7 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Interfaces.REST.Control
             Summary = "Sign up",
             Description = "Register a new user"
         )]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(AuthenticatedUserResource), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SignUp([FromBody] SignUpResource? signUpResource)
@@ -128,10 +128,18 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Interfaces.REST.Control
             try
             {
                 var signUpCommand = SignUpCommandFromResourceAssembler.ToCommandFromResource(signUpResource);
-                await userCommandService.Handle(signUpCommand);
+                var user = await userCommandService.Handle(signUpCommand);
+
+                if (user is null)
+                {
+                    return BadRequest(new { error = "User registration failed." });
+                }
+
+                var token = tokenService.GenerateToken(user);
+                var resource = AuthenticatedUserResourceFromEntityAssembler.ToResourceFromEntity(user, token);
 
                 logger.LogInformation("User registered successfully: {Email}", signUpResource.Email);
-                return Ok(new { message = "User registered successfully" });
+                return Ok(resource);
             }
             catch (InvalidOperationException ex)
             {

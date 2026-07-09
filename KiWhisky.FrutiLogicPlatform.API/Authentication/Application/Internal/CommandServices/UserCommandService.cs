@@ -157,7 +157,7 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.Co
         /// <returns>The user entity</returns>
         public async Task<(User user, string token)> Handle(SignInCommand command)
         {
-            var normalizedEmail = command.Email.Trim();
+            var normalizedEmail = command.Email.Trim().ToLowerInvariant();
             Console.WriteLine($"[SignIn] Looking for email: '{normalizedEmail}'");
 
             var user = await userRepository.FindByEmailAsync(normalizedEmail);
@@ -203,30 +203,41 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.Co
 
             try
             {
+                var normalizedEmail = command.Email.Trim().ToLowerInvariant();
+                var displayName = string.IsNullOrWhiteSpace(command.Name)
+                    ? normalizedEmail.Split('@')[0]
+                    : command.Name.Trim();
+                var businessName = string.IsNullOrWhiteSpace(command.BusinessName)
+                    ? displayName
+                    : command.BusinessName.Trim();
+                var role = string.IsNullOrWhiteSpace(command.Role)
+                    ? EAccountRole.LiquorStoreOwner.ToString()
+                    : command.Role.Trim();
+
                 var business = await paymentAndSubscriptionsFacade.CreateBusiness(
-                    businessName: command.BusinessName
+                    businessName: businessName
                 );
                 
                 if (business == null) throw new Exception("Business creation failed");
 
                 var account = await paymentAndSubscriptionsFacade.CreateAccount(
-                    role: command.Role,
+                    role: role,
                     businessId: business.Id.ToString()
                 );
 
                 if (account == null) throw new Exception("Account creation failed");
                 
-                var existingUser = await userRepository.FindByEmailAsync(command.Email);
+                var existingUser = await userRepository.FindByEmailAsync(normalizedEmail);
                 if (existingUser != null)
-                    throw new InvalidOperationException($"Email {command.Email} is already registered");
+                    throw new InvalidOperationException($"Email {normalizedEmail} is already registered");
 
                 var hashedPassword = hashingService.HashPassword(command.Password);
                 var user = new User(
-                    new Email(command.Email),
-                    command.Name,
+                    new Email(normalizedEmail),
+                    displayName,
                     hashedPassword,
                     account.Id.ToString(),
-                    "SuperAdmin"
+                    EUserRoles.SuperAdmin.ToString()
                 );
                 
                 await profileContextFacade.CreateProfileAsync(
@@ -240,8 +251,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.Co
                 
                 await userRepository.AddAsync(user);
 
-                if (string.Equals(command.Role, EAccountRole.LiquorStoreOwner.ToString(), StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(command.Role, EAccountRole.Supplier.ToString(), StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(role, EAccountRole.LiquorStoreOwner.ToString(), StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(role, EAccountRole.Supplier.ToString(), StringComparison.OrdinalIgnoreCase))
                 {
                     await paymentAndSubscriptionsFacade.ActivateFreePlanForAccountAsync(account.Id.ToString());
                 }
