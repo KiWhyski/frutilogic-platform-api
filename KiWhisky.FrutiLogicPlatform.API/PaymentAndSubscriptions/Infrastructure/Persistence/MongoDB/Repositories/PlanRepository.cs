@@ -26,23 +26,23 @@ public class PlanRepository(AppDbContext context, IMediator mediator) : BaseRepo
         {
             new Plan(
                 EPlanType.Free,
-                "Free plan with limited features",
+                "Plan gratuito FrutiLogic",
                 EPaymentFrequency.None,
-                new Money(0m, new Currency("USD")),
+                new Money(0m, new Currency("PEN")),
                 PlanLimits.For(EPlanType.Free)
             ),
             new Plan(
                 EPlanType.Premium,
-                "Premium plan with more features",
+                "Plan Premium FrutiLogic",
                 EPaymentFrequency.Monthly,
-                new Money(5.99m, new Currency("USD")),
+                new Money(29.90m, new Currency("PEN")),
                 PlanLimits.For(EPlanType.Premium)
             ),
             new Plan(
                 EPlanType.Enterprise,
-                "Enterprise plan with unlimited features",
+                "Plan Enterprise FrutiLogic",
                 EPaymentFrequency.Yearly,
-                new Money(42.99m, new Currency("USD")),
+                new Money(199.90m, new Currency("PEN")),
                 PlanLimits.For(EPlanType.Enterprise)
             )
         };

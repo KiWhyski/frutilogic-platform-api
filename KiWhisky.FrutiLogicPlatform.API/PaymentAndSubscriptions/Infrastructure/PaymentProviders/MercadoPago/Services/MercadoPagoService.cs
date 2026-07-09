@@ -10,55 +10,58 @@ using Microsoft.Extensions.Options;
 namespace KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Infrastructure.PaymentProviders.MercadoPago.Services;
 
 /// <summary>
-///     MercadoPago service implementation.
+///     MercadoPago Checkout Pro service implementation.
 /// </summary>
 public class MercadoPagoService : IMercadoPagoService
 {
-    
-    /// <summary>
-    ///     MercadoPago settings.
-    /// </summary>
     private readonly MercadoPagoSettings _settings;
+    private readonly ILogger<MercadoPagoService> _logger;
 
-    /// <summary>
-    ///     Default constructor for MercadoPagoService.   
-    /// </summary>
-    /// <param name="settings">
-    ///     The MercadoPago settings. 
-    /// </param>
-    public MercadoPagoService(IOptions<MercadoPagoSettings> settings)
+    public MercadoPagoService(IOptions<MercadoPagoSettings> settings, ILogger<MercadoPagoService> logger)
     {
         _settings = settings.Value;
-        MercadoPagoConfig.AccessToken = _settings.AccessToken;
+        _logger = logger;
+
+        if (string.IsNullOrWhiteSpace(_settings.AccessToken) ||
+            _settings.AccessToken.Contains("YOUR_ACCESS_TOKEN", StringComparison.OrdinalIgnoreCase) ||
+            _settings.AccessToken.Contains("ACCESS_TOKEN_HERE", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("MercadoPago AccessToken is not configured. Paid plan checkout will fail until it is set.");
+        }
+        else
+        {
+            MercadoPagoConfig.AccessToken = _settings.AccessToken;
+        }
     }
-    
-    /// <summary>
-    ///     Method to create a payment preference.
-    /// </summary>
-    /// <param name="title">
-    ///     The title of the payment preference.
-    /// </param>
-    /// <param name="price">
-    ///     The price of the payment preference.
-    /// </param>
-    /// <param name="currency">
-    ///     The currency of the payment preference.
-    /// </param>
-    /// <param name="quantity">
-    ///     The quantity of the payment preference.
-    /// </param>
-    /// <param name="accountId">
-    ///     The ID of the account.
-    /// </param>
-    /// <returns>
-    ///     A string representing the ID of the payment preference.
-    /// </returns>
-    public (string PreferenceId, string InitPoint) CreatePaymentPreference(string title, decimal price, string currency, int quantity, string accountId, DateTime? expirationDateFrom, DateTime? expirationDateTo)
+
+    public (string PreferenceId, string InitPoint) CreatePaymentPreference(
+        string title,
+        decimal price,
+        string currency,
+        int quantity,
+        string accountId,
+        DateTime? expirationDateFrom,
+        DateTime? expirationDateTo)
     {
+        if (string.IsNullOrWhiteSpace(_settings.AccessToken) ||
+            _settings.AccessToken.Contains("YOUR_ACCESS_TOKEN", StringComparison.OrdinalIgnoreCase) ||
+            _settings.AccessToken.Contains("ACCESS_TOKEN_HERE", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Mercado Pago Access Token is not configured. Set MercadoPagoSettings__AccessToken in the environment.");
+        }
+
+        MercadoPagoConfig.AccessToken = _settings.AccessToken;
+
+        var frontendBase = NormalizeBaseUrl(_settings.FrontendPublicUrl)
+                           ?? "https://frutilogic-frontend.vercel.app";
+        var backendBase = NormalizeBaseUrl(_settings.BackendPublicUrl)
+                          ?? "https://frutilogic-platform-api-production.up.railway.app";
+
         var request = new PreferenceRequest
         {
-            Items = new List<PreferenceItemRequest>
-            {
+            Items =
+            [
                 new PreferenceItemRequest
                 {
                     Title = title,
@@ -66,61 +69,59 @@ public class MercadoPagoService : IMercadoPagoService
                     CurrencyId = currency,
                     UnitPrice = price
                 }
-            },
+            ],
             BackUrls = new PreferenceBackUrlsRequest
             {
-                Success = "stocksip://payment/congrats",
-                Failure = "stocksip://payment/failure",
-                Pending = "stocksip://payment/pending"
+                Success = $"{frontendBase}/payments-success",
+                Failure = $"{frontendBase}/payments-cancel",
+                Pending = $"{frontendBase}/payments-success"
             },
-            NotificationUrl = "https://stocksip-backend.azurewebsites.net/api/v1/subscriptions",
+            NotificationUrl = $"{backendBase}/api/v1/subscriptions",
             AutoReturn = "approved",
+            ExternalReference = accountId,
             Metadata = new Dictionary<string, object>
             {
-                {"account_id", accountId}
+                { "account_id", accountId }
             },
-            
-            Expires = true,
+            Expires = expirationDateFrom.HasValue || expirationDateTo.HasValue,
             ExpirationDateFrom = expirationDateFrom,
             ExpirationDateTo = expirationDateTo
         };
-        
+
         var client = new PreferenceClient();
-        var preference = client.CreateAsync(request).Result;
-        return (preference.Id, preference.InitPoint);
+        var preference = client.CreateAsync(request).GetAwaiter().GetResult();
+
+        var checkoutUrl = _settings.UseSandbox
+            ? (preference.SandboxInitPoint ?? preference.InitPoint)
+            : (preference.InitPoint ?? preference.SandboxInitPoint);
+
+        _logger.LogInformation(
+            "Created Mercado Pago preference {PreferenceId} for account {AccountId} (sandbox={UseSandbox})",
+            preference.Id,
+            accountId,
+            _settings.UseSandbox);
+
+        return (preference.Id, checkoutUrl);
     }
 
-    /// <summary>
-    ///     Method to get a payment by ID.  
-    /// </summary>
-    /// <param name="paymentId">
-    ///     The ID of the payment.
-    /// </param>
-    /// <returns>
-    ///     A MercadoPagoPayment object representing the payment.
-    /// </returns>
-    /// <exception cref="ArgumentException">
-    ///     A thrown exception when the payment ID is invalid.
-    /// </exception>
     public async Task<MercadoPagoPayment?> GetPaymentById(string paymentId)
     {
-        if (!long.TryParse(paymentId, out long id))
+        if (!long.TryParse(paymentId, out var id))
             throw new ArgumentException("Invalid payment ID", nameof(paymentId));
 
+        MercadoPagoConfig.AccessToken = _settings.AccessToken;
         var client = new PaymentClient();
         var payment = await client.GetAsync(id);
 
-        string accountId = "";
-        
+        var accountId = "";
+
         if (payment.Metadata is IDictionary<string, object> dict)
         {
-            
             if (dict.TryGetValue("account_id", out var value))
                 accountId = value?.ToString() ?? "";
         }
         else if (payment.Metadata != null)
         {
-            
             try
             {
                 var json = payment.Metadata.ToString();
@@ -134,6 +135,9 @@ public class MercadoPagoService : IMercadoPagoService
             }
         }
 
+        if (string.IsNullOrWhiteSpace(accountId) && !string.IsNullOrWhiteSpace(payment.ExternalReference))
+            accountId = payment.ExternalReference;
+
         return new MercadoPagoPayment(
             payment.Id.ToString(),
             payment.Status,
@@ -141,6 +145,11 @@ public class MercadoPagoService : IMercadoPagoService
         );
     }
 
+    private static string? NormalizeBaseUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
 
-    
+        return url.Trim().TrimEnd('/');
+    }
 }
