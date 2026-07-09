@@ -1,10 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Model.Aggregates;
 using KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.OutboundServices.Token;
+using KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Tokens.JWT.Configuration;
 using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Domain.Services;
 using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Domain.Model.Queries;
 
@@ -42,7 +41,7 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Tokens.J
         public string GenerateToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_secret);
+            var signingKey = JwtSigningKeyFactory.CreateSecurityKey(_secret);
             var roleValue = "User";
 
             try
@@ -78,7 +77,7 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Tokens.J
                 Issuer = _issuer,
                 Audience = _audience,
                 SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(key), 
+                    signingKey,
                     SecurityAlgorithms.HmacSha256Signature)
             };
 
@@ -97,14 +96,14 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Tokens.J
                 return null;
 
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_secret);
+            var signingKey = JwtSigningKeyFactory.CreateSecurityKey(_secret);
             
             try
             {
                 var tokenValidationResult = await tokenHandler.ValidateTokenAsync(token, new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    IssuerSigningKey = signingKey,
                     ValidateIssuer = true,
                     ValidIssuer = _issuer,
                     ValidateAudience = true,

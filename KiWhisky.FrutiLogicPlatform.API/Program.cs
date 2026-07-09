@@ -583,9 +583,9 @@ if (!string.IsNullOrWhiteSpace(googleClientId))
         options.RequireHttpsMetadata = false; // For development only
 
         var jwtSettings = builder.Configuration.GetSection("Jwt");
-        // JWT configuration
-        var key = Encoding.ASCII.GetBytes(jwtSettings["Secret"] ??
-            throw new InvalidOperationException("JWT Secret no está configurado"));
+        var jwtSecret = jwtSettings["Secret"] ??
+            throw new InvalidOperationException("JWT Secret no está configurado");
+        var signingKey = JwtSigningKeyFactory.CreateSecurityKey(jwtSecret);
 
         // Get JWT settings from configuration
         var validateIssuer = jwtSettings.GetValue<bool>("ValidateIssuer");
@@ -611,7 +611,7 @@ if (!string.IsNullOrWhiteSpace(googleClientId))
 
             // Configure issuer signing key
             ValidateIssuerSigningKey = validateIssuerSigningKey,
-            IssuerSigningKey = new SymmetricSecurityKey(key),
+            IssuerSigningKey = signingKey,
 
             // Other settings
             RequireExpirationTime = requireExpirationTime,
