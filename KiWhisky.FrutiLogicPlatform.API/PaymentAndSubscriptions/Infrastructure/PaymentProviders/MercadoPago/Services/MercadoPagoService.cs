@@ -53,8 +53,7 @@ public class MercadoPagoService : IMercadoPagoService
 
         MercadoPagoConfig.AccessToken = _settings.AccessToken;
 
-        var frontendBase = NormalizeBaseUrl(_settings.FrontendPublicUrl)
-                           ?? "https://frutilogic-frontend.vercel.app";
+        var frontendBase = ResolveFrontendBaseUrl();
         var backendBase = NormalizeBaseUrl(_settings.ResolvedBackendPublicUrl)
                           ?? "https://frutilogic-platform-api-production.up.railway.app";
 
@@ -71,7 +70,7 @@ public class MercadoPagoService : IMercadoPagoService
                 {
                     Title = title,
                     Quantity = quantity,
-                    CurrencyId = currency,
+                    CurrencyId = string.IsNullOrWhiteSpace(currency) ? "PEN" : currency,
                     UnitPrice = price
                 }
             ],
@@ -93,21 +92,70 @@ public class MercadoPagoService : IMercadoPagoService
             ExpirationDateTo = expirationDateTo
         };
 
-        var client = new PreferenceClient();
-        var preference = client.CreateAsync(request).GetAwaiter().GetResult();
+        try
+        {
+            var client = new PreferenceClient();
+            var preference = client.CreateAsync(request).GetAwaiter().GetResult();
 
-        var useSandbox = _settings.IsSandboxMode;
-        var checkoutUrl = useSandbox
-            ? (preference.SandboxInitPoint ?? preference.InitPoint)
-            : (preference.InitPoint ?? preference.SandboxInitPoint);
+            var useSandbox = _settings.IsSandboxMode;
+            var checkoutUrl = useSandbox
+                ? (preference.SandboxInitPoint ?? preference.InitPoint)
+                : (preference.InitPoint ?? preference.SandboxInitPoint);
 
-        _logger.LogInformation(
-            "Created Mercado Pago preference {PreferenceId} for account {AccountId} (sandbox={UseSandbox})",
-            preference.Id,
-            accountId,
-            useSandbox);
+            if (string.IsNullOrWhiteSpace(checkoutUrl))
+            {
+                throw new InvalidOperationException(
+                    "Mercado Pago did not return a checkout URL. Check AccessToken and UseSandbox.");
+            }
 
-        return (preference.Id, checkoutUrl);
+            _logger.LogInformation(
+                "Created Mercado Pago preference {PreferenceId} for account {AccountId} (sandbox={UseSandbox})",
+                preference.Id,
+                accountId,
+                useSandbox);
+
+            return (preference.Id, checkoutUrl);
+        }
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            _logger.LogError(ex, "Mercado Pago CreatePaymentPreference failed for account {AccountId}", accountId);
+            throw new InvalidOperationException(
+                $"Mercado Pago preference failed: {ex.Message}", ex);
+        }
+    }
+
+    private string ResolveFrontendBaseUrl()
+    {
+        var configured = NormalizeBaseUrl(_settings.FrontendPublicUrl);
+        if (IsUsablePublicUrl(configured))
+            return configured!;
+
+        var fromEnv = Environment.GetEnvironmentVariable("FRONTEND_URL");
+        if (!string.IsNullOrWhiteSpace(fromEnv))
+        {
+            // FRONTEND_URL may be a comma-separated CORS list; take the first.
+            var first = fromEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .FirstOrDefault();
+            var normalized = NormalizeBaseUrl(first);
+            if (IsUsablePublicUrl(normalized))
+                return normalized!;
+        }
+
+        return "https://stocksip-front-end-application.vercel.app";
+    }
+
+    private static bool IsUsablePublicUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return false;
+        if (url.Contains("TU-FRONTEND", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (url.Contains("YOUR_", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (url.Contains("localhost", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
     }
 
     public async Task<MercadoPagoPayment?> GetPaymentById(string paymentId)
