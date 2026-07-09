@@ -45,21 +45,33 @@ public class AccountSubscriptionsController(
     public async Task<IActionResult> CreateSubscription([FromRoute] string accountId,
         [FromBody] InitialSubscriptionResource resource)
     {
-        var command = InitialSubscriptionCommandFromResourceAssembler.FromCommandToEntity(resource, accountId);
-        var (preferenceId, initPoint) = await subscriptionsCommandService.Handle(command);
-
-        if (preferenceId is null && initPoint is null)
+        try
         {
-            var freeSubscription = new PaymentPreferenceResource(null, null, "Free plan activated successfully.");
+            var command = InitialSubscriptionCommandFromResourceAssembler.FromCommandToEntity(resource, accountId);
+            var (preferenceId, initPoint) = await subscriptionsCommandService.Handle(command);
 
-            return CreatedAtAction(nameof(CreateSubscription), freeSubscription);
+            if (preferenceId is null && initPoint is null)
+            {
+                var freeSubscription = new PaymentPreferenceResource(null, null, "Free plan activated successfully.");
+                return CreatedAtAction(nameof(CreateSubscription), freeSubscription);
+            }
+
+            var subscriptionResource =
+                PaymentPreferenceResourceFromEntityAssembler.ToResourceFromEntity(preferenceId!, initPoint!,
+                    message: "Processing subscription request..");
+
+            return CreatedAtAction(nameof(CreateSubscription), subscriptionResource);
         }
-
-        var subscriptionResource =
-            PaymentPreferenceResourceFromEntityAssembler.ToResourceFromEntity(preferenceId!, initPoint!,
-                message: "Processing subscription request..");
-
-        return CreatedAtAction(nameof(CreateSubscription), subscriptionResource);
+        catch (Exception ex)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Subscription could not be created",
+                Detail = ex.Message,
+                Instance = HttpContext.Request.Path
+            });
+        }
     }
 
     /// <summary>

@@ -27,6 +27,11 @@ public class MercadoPagoSettings
     public string BackendPublicUrl { get; set; } = string.Empty;
 
     /// <summary>
+    ///     Alias accepted from Railway if someone sets WebhookUrl instead of BackendPublicUrl.
+    /// </summary>
+    public string WebhookUrl { get; set; } = string.Empty;
+
+    /// <summary>
     ///     Frontend base URL used for Checkout Pro back_urls.
     ///     Example: https://frutilogic-frontend.vercel.app
     /// </summary>
@@ -36,4 +41,14 @@ public class MercadoPagoSettings
     ///     When true, returns SandboxInitPoint instead of InitPoint (test credentials).
     /// </summary>
     public bool UseSandbox { get; set; } = true;
+
+    /// <summary>
+    ///     Alias for UseSandbox (some Railway setups use IsSandbox).
+    /// </summary>
+    public bool? IsSandbox { get; set; }
+
+    public bool IsSandboxMode => IsSandbox ?? UseSandbox;
+
+    public string ResolvedBackendPublicUrl =>
+        !string.IsNullOrWhiteSpace(BackendPublicUrl) ? BackendPublicUrl : WebhookUrl;
 }

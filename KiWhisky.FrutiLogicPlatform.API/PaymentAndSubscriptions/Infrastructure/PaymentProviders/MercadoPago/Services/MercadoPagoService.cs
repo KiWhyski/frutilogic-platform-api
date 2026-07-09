@@ -55,8 +55,13 @@ public class MercadoPagoService : IMercadoPagoService
 
         var frontendBase = NormalizeBaseUrl(_settings.FrontendPublicUrl)
                            ?? "https://frutilogic-frontend.vercel.app";
-        var backendBase = NormalizeBaseUrl(_settings.BackendPublicUrl)
+        var backendBase = NormalizeBaseUrl(_settings.ResolvedBackendPublicUrl)
                           ?? "https://frutilogic-platform-api-production.up.railway.app";
+
+        // If WebhookUrl already points to the subscriptions endpoint, use it as-is.
+        var notificationUrl = _settings.WebhookUrl?.Contains("/api/v1/subscriptions", StringComparison.OrdinalIgnoreCase) == true
+            ? _settings.WebhookUrl.Trim()
+            : $"{backendBase}/api/v1/subscriptions";
 
         var request = new PreferenceRequest
         {
@@ -76,7 +81,7 @@ public class MercadoPagoService : IMercadoPagoService
                 Failure = $"{frontendBase}/payments-cancel",
                 Pending = $"{frontendBase}/payments-success"
             },
-            NotificationUrl = $"{backendBase}/api/v1/subscriptions",
+            NotificationUrl = notificationUrl,
             AutoReturn = "approved",
             ExternalReference = accountId,
             Metadata = new Dictionary<string, object>
@@ -91,7 +96,8 @@ public class MercadoPagoService : IMercadoPagoService
         var client = new PreferenceClient();
         var preference = client.CreateAsync(request).GetAwaiter().GetResult();
 
-        var checkoutUrl = _settings.UseSandbox
+        var useSandbox = _settings.IsSandboxMode;
+        var checkoutUrl = useSandbox
             ? (preference.SandboxInitPoint ?? preference.InitPoint)
             : (preference.InitPoint ?? preference.SandboxInitPoint);
 
@@ -99,7 +105,7 @@ public class MercadoPagoService : IMercadoPagoService
             "Created Mercado Pago preference {PreferenceId} for account {AccountId} (sandbox={UseSandbox})",
             preference.Id,
             accountId,
-            _settings.UseSandbox);
+            useSandbox);
 
         return (preference.Id, checkoutUrl);
     }

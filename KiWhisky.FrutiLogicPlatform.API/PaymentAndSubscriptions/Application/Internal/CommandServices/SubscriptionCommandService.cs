@@ -30,8 +30,24 @@ public class SubscriptionCommandService(
 
         if (pendingSubscription is not null)
             await subscriptionRepository.DeleteAsync(pendingSubscription.Id.ToString());
+
+        // If the account already has an active Free plan and wants Premium/Enterprise,
+        // create a Mercado Pago preference via the upgrade path instead of failing.
         if (currentSubscription is not null)
-            throw new Exception("An active subscription already exists for this account.");
+        {
+            var currentPlan = await planRepository.FindByIdAsync(currentSubscription.PlanId);
+            if (currentPlan is not null &&
+                currentPlan.PlanType == EPlanType.Free &&
+                (plan.PlanType == EPlanType.Premium || plan.PlanType == EPlanType.Enterprise))
+            {
+                return await Handle(new UpgradeSubscriptionCommand(
+                    command.AccountId,
+                    currentSubscription.Id.ToString(),
+                    command.SelectedPlanId));
+            }
+
+            throw new Exception("An active subscription already exists for this account. Use upgrade instead.");
+        }
 
         var subscription = new Subscription(command.AccountId, command.SelectedPlanId);
 
