@@ -24,8 +24,8 @@ public static class InventoryManagementMappingHelper
         // Use of EBrandNames Value Object serializer
         SerializerRegistrationHelper.TryRegisterSerializer(new EnumSerializer<EBrandNames>(BsonType.String));
         
-        // Use of EProductTypes Value Object serializer
-        SerializerRegistrationHelper.TryRegisterSerializer(new EnumSerializer<EProductTypes>(BsonType.String));
+        // Tolerant product-type serializer (maps legacy beverage values to Others)
+        SerializerRegistrationHelper.TryRegisterSerializer(new EProductTypesSerializer());
         
         // Use of ProductContent Value Object serializer
         SerializerRegistrationHelper.TryRegisterSerializer(new ProductContentSerializer());

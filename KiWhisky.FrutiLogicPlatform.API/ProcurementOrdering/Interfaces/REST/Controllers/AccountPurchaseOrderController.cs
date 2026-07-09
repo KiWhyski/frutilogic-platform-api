@@ -112,7 +112,12 @@ public class AccountPurchaseOrderController(
         if (!string.IsNullOrWhiteSpace(claimAccountId))
             return claimAccountId.Equals(accountId, StringComparison.OrdinalIgnoreCase);
 
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sid")?.Value;
+        if (HttpContext.Items["User"] is Authentication.Domain.Model.Aggregates.User middlewareUser)
+            return middlewareUser.AccountId?.GetId.Equals(accountId, StringComparison.OrdinalIgnoreCase) == true;
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                     ?? User.FindFirst(ClaimTypes.Sid)?.Value
+                     ?? User.FindFirst("sid")?.Value;
         if (string.IsNullOrWhiteSpace(userId))
             return false;
         if (userId.Equals(accountId, StringComparison.OrdinalIgnoreCase))

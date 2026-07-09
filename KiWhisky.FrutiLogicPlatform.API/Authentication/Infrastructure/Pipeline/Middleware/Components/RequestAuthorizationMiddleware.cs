@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.OutboundServices.Token;
 using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Model.Queries;
 using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Services;
@@ -176,8 +177,21 @@ public class RequestAuthorizationMiddleware(RequestDelegate next,
 
         _logger.LogInformation("Successful authorization. Setting HttpContext.Items[\"User\"]");
         context.Items["User"] = user;
+
+        // Controllers that use ControllerBase.User need a ClaimsPrincipal on HttpContext.User.
+        // The custom middleware previously only set Items["User"], which caused 403 on ownership checks.
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.Sid, user.Id.ToString()),
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Username ?? string.Empty),
+            new(ClaimTypes.Email, user.Email?.ToString() ?? string.Empty),
+            new("accountId", user.AccountId?.GetId ?? string.Empty),
+            new("sid", user.Id.ToString())
+        };
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, authenticationType: "CustomJwt"));
+
         _logger.LogInformation("Continuing with Middleware Pipeline");
-        // call next middleware
         await next(context);
     }
 }
