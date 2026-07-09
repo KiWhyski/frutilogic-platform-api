@@ -176,9 +176,14 @@ namespace KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Interfaces.REST.Co
 
             var (storagePlace, recommendation) = productType switch
             {
-                EProductTypes.Whiskeys or EProductTypes.Rums or EProductTypes.Tequilas => ("Cool, dark place", $"Store {productType} at a consistent temperature."),
-                EProductTypes.Wines => ("Wine cellar or dark place", $"Store {productType} horizontally in a dark place."),
-                EProductTypes.Beers => ("Refrigerator", $"Store {productType} refrigerated."),
+                EProductTypes.Apples or EProductTypes.Pears or EProductTypes.Grapes =>
+                    ("Cool, ventilated place", $"Store {productType} in a cool place away from direct sunlight."),
+                EProductTypes.Bananas or EProductTypes.Mangos or EProductTypes.Pineapples or EProductTypes.Avocados =>
+                    ("Room temperature", $"Keep {productType} at room temperature until ripe, then refrigerate if needed."),
+                EProductTypes.Strawberries or EProductTypes.Blueberries or EProductTypes.Kiwis =>
+                    ("Refrigerator", $"Store {productType} refrigerated and handle gently."),
+                EProductTypes.Watermelons or EProductTypes.Oranges =>
+                    ("Cool, dry place", $"Store {productType} in a cool, dry place."),
                 _ => ("Cool, dry place", $"Store {productType} in a cool, dry place.")
             };
 

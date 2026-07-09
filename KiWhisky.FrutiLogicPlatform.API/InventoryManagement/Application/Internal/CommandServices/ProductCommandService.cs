@@ -38,10 +38,10 @@ public class ProductCommandService(
     /// </returns>
     public async Task<Product?> Handle(RegisterProductCommand command)
     {
-        // Verifies that the product name is unique.
-        if (await productRepository.ExistsByNameAsync(new ProductName(command.Name)))
+        // Verifies that the product name is unique within the same account.
+        if (await productRepository.ExistsByNameAndAccountIdAsync(new ProductName(command.Name), command.AccountId))
         {
-            throw new ProductFailedCreationException("This ${command.Name} is taken by another product. Cannot create a new product with the same name.");
+            throw new ProductFailedCreationException($"El nombre \"{command.Name}\" ya está en uso en tu cuenta. Elige otro nombre.");
         }
         
         string imageUrl = command.Image != null

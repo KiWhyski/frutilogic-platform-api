@@ -22,6 +22,8 @@ public interface IProductRepository : IBaseRepository<Product>
     /// </returns>
     Task<bool> ExistsByNameAsync(ProductName name);
 
+    Task<bool> ExistsByNameAndAccountIdAsync(ProductName name, AccountId accountId);
+
     /// <summary>
     ///     Method to check if a product exists by a given ID.
     /// </summary>

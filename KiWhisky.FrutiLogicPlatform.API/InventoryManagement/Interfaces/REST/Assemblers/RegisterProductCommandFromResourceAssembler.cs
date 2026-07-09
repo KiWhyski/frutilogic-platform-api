@@ -26,7 +26,7 @@ public static class RegisterProductCommandFromResourceAssembler
     {
         return new RegisterProductCommand(
                 resource.Name,
-                Enum.Parse<EProductTypes>(resource.Type),
+                Enum.Parse<EProductTypes>(resource.Type, ignoreCase: true),
                 resource.Brand,
                 new Money(resource.UnitPrice, new Currency(resource.Code)),
                 new ProductMinimumStock(resource.MinimumStock),

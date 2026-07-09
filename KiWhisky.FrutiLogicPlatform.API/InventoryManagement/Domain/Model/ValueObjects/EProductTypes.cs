@@ -1,21 +1,21 @@
 namespace KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Model.ValueObjects;
 
 /// <summary>
-///     Enum representing the types of products in inventory.
+///     Enum representing the types of fruit products in inventory.
 /// </summary>
 public enum EProductTypes
 {
-    Sodas,
-    Snacks,
-    Wines,
-    Rums,
-    Whiskeys,
-    Beers,
-    Tequilas,
-    Vodkas,
-    Gins,
-    Cocktails,
-    Juices,
-    SoftDrinks,
+    Apples,
+    Bananas,
+    Oranges,
+    Grapes,
+    Strawberries,
+    Mangos,
+    Pineapples,
+    Avocados,
+    Blueberries,
+    Kiwis,
+    Pears,
+    Watermelons,
     Others
 }

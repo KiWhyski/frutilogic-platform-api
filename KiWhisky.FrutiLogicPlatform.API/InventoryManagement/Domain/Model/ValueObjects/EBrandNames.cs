@@ -1,14 +1,19 @@
 namespace KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Model.ValueObjects;
 
 /// <summary>
-///     Enum representing various brand names.
+///     Enum representing fruit producer / brand names.
 /// </summary>
 public enum EBrandNames
 {
-    Tabernero,
-    SantiagoQueirolo,
-    Pilsen,
-    Cristal,
-    Cusquena,
-    JhonnyWalker
+    FruticultoresDelSur,
+    ExportPeru,
+    AgroAndes,
+    HuertosUnion,
+    EcoCampo,
+    ElParaisoVerde,
+    ValleFresco,
+    CostaNatural,
+    SelvaDorada,
+    SierraFruits,
+    NoBrand
 }

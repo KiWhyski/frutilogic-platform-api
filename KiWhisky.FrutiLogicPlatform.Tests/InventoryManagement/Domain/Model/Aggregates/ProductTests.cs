@@ -13,11 +13,11 @@ public class ProductTests
 {
     private Product CreateValidProduct()
     {
-        const string name = "Whisky Blue Label";
+        const string name = "Manzana Fuji";
         const decimal price = 10.99m;
-        var brand = EBrandNames.JhonnyWalker.GetDisplayName();
+        var brand = EBrandNames.FruticultoresDelSur.GetDisplayName();
         const int minimumStock = 5;
-        const decimal content = 300.00m;
+        const decimal content = 1.00m;
         const string imageUrl = "https://www.example.com/image.jpg";
         const string ownerId = "1234567890";
         const string supplierId = "1234555";
@@ -29,18 +29,18 @@ public class ProductTests
         var accountId = new AccountId(ownerId);
         var supplierIdObject = new AccountId(supplierId);
         
-        return new Product(name, EProductTypes.Whiskeys, brand, unitPrice, productMinimumStock, productContent, imageUrlObject, accountId, supplierIdObject);
+        return new Product(name, EProductTypes.Apples, brand, unitPrice, productMinimumStock, productContent, imageUrlObject, accountId, supplierIdObject);
     }
 
     [Fact]
     public void Constructor_ValidInputs_ShouldCreateProduct()
     {
         // Arrange
-        const string name = "Whisky Blue Label";
+        const string name = "Manzana Fuji";
         const decimal price = 10.99m;
-        var brand = EBrandNames.JhonnyWalker.GetDisplayName();
+        var brand = EBrandNames.FruticultoresDelSur.GetDisplayName();
         const int minimumStock = 5;
-        const decimal content = 300.00m;
+        const decimal content = 1.00m;
         const string imageUrl = "https://www.example.com/image.jpg";
         const string ownerId = "1234567890";
         const string supplierId = "1234555";
@@ -52,11 +52,11 @@ public class ProductTests
         var imageUrlObject = new ImageUrl(imageUrl);
         var accountId = new AccountId(ownerId);
         var supplierIdObject = new AccountId(supplierId);
-        var product = new Product(name, EProductTypes.Whiskeys, brand, unitPrice, productMinimumStock, productContent, imageUrlObject, accountId, supplierIdObject);
+        var product = new Product(name, EProductTypes.Apples, brand, unitPrice, productMinimumStock, productContent, imageUrlObject, accountId, supplierIdObject);
 
         // Assert
         Assert.Equal(name, product.Name);
-        Assert.Equal(EProductTypes.Whiskeys, product.Type);
+        Assert.Equal(EProductTypes.Apples, product.Type);
         Assert.Equal(brand, product.Brand);
         Assert.Equal(unitPrice, product.UnitPrice);
         Assert.Equal(productMinimumStock, product.MinimumStock);
@@ -69,19 +69,19 @@ public class ProductTests
     }
 
     [Theory]
-    [InlineData(EProductTypes.Beers)]
-    [InlineData(EProductTypes.Cocktails)]
-    [InlineData(EProductTypes.Rums)]
-    [InlineData(EProductTypes.Tequilas)]
-    [InlineData(EProductTypes.Vodkas)]
+    [InlineData(EProductTypes.Bananas)]
+    [InlineData(EProductTypes.Oranges)]
+    [InlineData(EProductTypes.Grapes)]
+    [InlineData(EProductTypes.Mangos)]
+    [InlineData(EProductTypes.Kiwis)]
     public void Constructor_ShouldAcceptAllValidProductTypesEnumValues(EProductTypes types)
     {
         // Arrange
-        const string name = "Whisky Blue Label";
+        const string name = "Manzana Fuji";
         const decimal price = 10.99m;
-        var brand = EBrandNames.JhonnyWalker.GetDisplayName();
+        var brand = EBrandNames.FruticultoresDelSur.GetDisplayName();
         const int minimumStock = 5;
-        const decimal content = 300.00m;
+        const decimal content = 1.00m;
         const string imageUrl = "https://www.example.com/image.jpg";
         const string ownerId = "1234567890";
         const string supplierId = "1234555";
@@ -200,7 +200,7 @@ public class ProductTests
         const decimal price = 15.00m;
         var brand = "Generic Brand";
         const int minimumStock = 3;
-        const decimal content = 500.00m;
+        const decimal content = 1.00m;
         const string imageUrl = "https://www.example.com/image.jpg";
         const string ownerId = "1234567890";
 
@@ -211,7 +211,7 @@ public class ProductTests
         var accountId = new AccountId(ownerId);
 
         // Act
-        var product = new Product(name, EProductTypes.Sodas, brand, unitPrice, productMinimumStock, productContent, imageUrlObject, accountId, null);
+        var product = new Product(name, EProductTypes.Others, brand, unitPrice, productMinimumStock, productContent, imageUrlObject, accountId, null);
 
         // Assert
         Assert.Null(product.SupplierId);

@@ -36,6 +36,15 @@ public class ProductRepository(AppDbContext context, IMediator mediator) : BaseR
             .AnyAsync();
     }
 
+    public async Task<bool> ExistsByNameAndAccountIdAsync(ProductName name, AccountId accountId)
+    {
+        var filter = Builders<Product>.Filter.And(
+            Builders<Product>.Filter.Eq(x => x.Name, name.GetValue()),
+            Builders<Product>.Filter.Eq(x => x.AccountId, accountId)
+        );
+        return await _productCollection.Find(filter).AnyAsync();
+    }
+
     /// <summary>
     ///     Method to check if a product exists by a given ID.
     /// </summary>

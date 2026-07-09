@@ -71,10 +71,21 @@ public class AccountProductsController(
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Product could not be registered.")]
     public async Task<IActionResult> RegisterProduct([FromForm] RegisterProductResource resource, [FromRoute] string accountId)
     {
-        var registerProductCommand = RegisterProductCommandFromResourceAssembler.ToCommandFromResource(resource, accountId);
-        var product = await productCommandService.Handle(registerProductCommand);
-        if (product is null) return BadRequest("Product could not be registered.");
-        var productResource = ProductResourceFromEntityAssembler.ToResourceFromEntity(product);
-        return Ok(productResource);
+        try
+        {
+            var registerProductCommand = RegisterProductCommandFromResourceAssembler.ToCommandFromResource(resource, accountId);
+            var product = await productCommandService.Handle(registerProductCommand);
+            if (product is null) return BadRequest("Product could not be registered.");
+            var productResource = ProductResourceFromEntityAssembler.ToResourceFromEntity(product);
+            return Ok(productResource);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex) when (ex.GetType().Name.Contains("ProductFailed") || ex.GetType().Name.Contains("ValueObject"))
+        {
+            return BadRequest(ex.Message);
+        }
     }
 }
