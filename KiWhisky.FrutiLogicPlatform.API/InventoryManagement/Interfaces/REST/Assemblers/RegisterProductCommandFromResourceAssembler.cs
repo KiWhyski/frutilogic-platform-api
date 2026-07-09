@@ -13,27 +13,34 @@ public static class RegisterProductCommandFromResourceAssembler
     /// <summary>
     ///     Static method to convert RegisterProductResource to RegisterProductCommand.   
     /// </summary>
-    /// <param name="resource">
-    ///     The RegisterProductResource to convert.
-    /// </param>
-    /// <param name="accountId">
-    ///     The account id of the user registering the product.
-    /// </param>
-    /// <returns>
-    ///     A RegisterProductCommand representation of the RegisterProductResource.
-    /// </returns>
     public static RegisterProductCommand ToCommandFromResource(RegisterProductResource resource, string accountId)
     {
+        if (resource is null)
+            throw new ArgumentException("Product payload is required.");
+        if (string.IsNullOrWhiteSpace(resource.Name))
+            throw new ArgumentException("Name is required.");
+        if (string.IsNullOrWhiteSpace(resource.Type))
+            throw new ArgumentException("Type is required.");
+        if (string.IsNullOrWhiteSpace(resource.Brand))
+            throw new ArgumentException("Brand is required.");
+        if (string.IsNullOrWhiteSpace(resource.Code))
+            throw new ArgumentException("Currency code is required.");
+        if (!Enum.TryParse<EProductTypes>(resource.Type, ignoreCase: true, out var productType))
+            throw new ArgumentException($"Invalid product type: {resource.Type}");
+
+        var content = resource.Content > 0 ? resource.Content : 1m;
+        var minimumStock = resource.MinimumStock > 0 ? resource.MinimumStock : 1;
+
         return new RegisterProductCommand(
-                resource.Name,
-                Enum.Parse<EProductTypes>(resource.Type, ignoreCase: true),
-                resource.Brand,
+                resource.Name.Trim(),
+                productType,
+                resource.Brand.Trim(),
                 new Money(resource.UnitPrice, new Currency(resource.Code)),
-                new ProductMinimumStock(resource.MinimumStock),
-                new ProductContent(resource.Content),
+                new ProductMinimumStock(minimumStock),
+                new ProductContent(content),
                 resource.Image,
                 new AccountId(accountId),
-                new AccountId(resource.SupplierId ?? "")
+                new AccountId(resource.SupplierId ?? string.Empty)
             );
     }
 }

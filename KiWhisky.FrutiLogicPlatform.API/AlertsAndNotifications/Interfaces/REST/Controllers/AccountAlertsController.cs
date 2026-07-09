@@ -34,11 +34,7 @@ namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Interfaces.REST
         {
             var getAllAlertsByAccountIdQuery = new GetAllAlertsByAccountIdQuery(accountId);
             var alerts = await alertQueryService.Handle(getAllAlertsByAccountIdQuery);
-            var enumerable = alerts.ToList();    
-            if (!enumerable.Any())
-            {
-                return BadRequest(new { Message = "No se encontraron alertas para la cuenta especificada." });
-            }
+            var enumerable = alerts.ToList();
             var alertResources = enumerable.Select(AlertResourceFromEntityAssembler.ToResourceFromEntity);
             return Ok(alertResources);
         }   
