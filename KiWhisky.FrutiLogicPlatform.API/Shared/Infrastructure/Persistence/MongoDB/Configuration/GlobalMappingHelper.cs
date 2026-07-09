@@ -1,8 +1,10 @@
 using KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Persistence.MongoDB.Configuration;
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Infrastructure.Persistence.MongoDB.Configuration.ContextMapping;
+using KiWhisky.FrutiLogicPlatform.API.OrderManagement.Infrastructure.Persistence.MongoDB.Configuration.ContextMapping;
 using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Domain.Model.Events;
 using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Infrastructure.Persistence.MongoDB.Configuration.ContextMapping;
 using KiWhisky.FrutiLogicPlatform.API.ProfileManagement.Infrastructure.Persistence.MongoDB.Configuration.ContextMapping;
+using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Infrastructure.Persistence.MongoDB.Configuration.ContextMapping;
 using KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.Persistence.MongoDB.Configuration.ContextMapping;
 
 namespace KiWhisky.FrutiLogicPlatform.API.Shared.Infrastructure.Persistence.MongoDB.Configuration;
@@ -37,8 +39,14 @@ public static class GlobalMongoMappingHelper
         Console.WriteLine("Inventory Management Mappings Registered!");
         
         // Order Management Bounded Context
+        Console.WriteLine("Registering Order Management Mappings...");
+        SalesOrderMappingHelper.RegisterSalesOrderManagementMappings();
+        Console.WriteLine("Order Management Mappings Registered!");
         
         // Procurement Ordering Bounded Context
+        Console.WriteLine("Registering Procurement Ordering Mappings...");
+        ProcurementOrderingMappingHelper.RegisterProcurementOrderingMappings();
+        Console.WriteLine("Procurement Ordering Mappings Registered!");
         
         // Subscription Bounded Context
         Console.WriteLine("Registering Payment and Subscriptions Mappings...");

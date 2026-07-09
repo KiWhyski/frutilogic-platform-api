@@ -25,13 +25,13 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
         <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.11.0" />
         <!-- Database driver for MongoDB -->
-        <PackageReference Include="MongoDB.Driver" Version="3.4.3" />
+        <PackageReference Include="MongoDB.Driver" Version="3.10.0" />
         <!-- CQRS/Mediator Pattern related packages -->
         <PackageReference Include="Cortex.Mediator" Version="1.6.1" />
         <!-- Cloudinary Image Storage related packages -->
         <PackageReference Include="CloudinaryDotNet" Version="1.27.6" />
         <!-- Usage of Google Services (Email) related packages -->
-        <PackageReference Include="MailKit" Version="4.13.0" />
+        <PackageReference Include="MailKit" Version="4.17.0" />
         <!-- MercadoPago Payment Gateway related packages -->
         <PackageReference Include="mercadopago-sdk" Version="2.10.0" />
         <!-- PayPal Payment Gateway related packages -->

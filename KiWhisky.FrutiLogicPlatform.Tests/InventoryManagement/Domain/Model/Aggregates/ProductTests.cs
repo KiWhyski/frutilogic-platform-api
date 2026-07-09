@@ -217,4 +217,15 @@ public class ProductTests
         Assert.Null(product.SupplierId);
         Assert.Equal(name, product.Name);
     }
+
+    [Fact]
+    public void UpdateMinimumStock_ShouldAssignUpdatedValue()
+    {
+        var product = CreateValidProduct();
+        var command = new UpdateProductMinimumStockCommand(product.Id, 12);
+
+        product.UpdateMinimumStock(command);
+
+        Assert.Equal(12, product.MinimumStock.GetValue());
+    }
 }

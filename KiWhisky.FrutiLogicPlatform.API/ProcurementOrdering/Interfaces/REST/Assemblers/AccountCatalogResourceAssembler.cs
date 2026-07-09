@@ -58,7 +58,8 @@ public static class AccountCatalogsResourceAssembler
                 )).ToList() ?? new List<CatalogItemResource>(),
                 ownerAccount: c.OwnerAccount.GetId,
                 contactEmail: c.ContactEmail?.Value ?? "Not provided",
-                isPublished: c.IsPublished
+                isPublished: c.IsPublished,
+                warehouseId: c.WarehouseId
             ));
 
         return new AccountCatalogsResource(accountResource, publishedCatalogs);

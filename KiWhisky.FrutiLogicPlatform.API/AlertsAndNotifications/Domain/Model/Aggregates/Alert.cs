@@ -43,6 +43,10 @@ public class Alert: Entity
     /// <summay>
     public InventoryId InventoryId { get; private set; }
 
+    public AlertDetails? Details { get; private set; }
+
+    public string? IdempotencyKey { get; private set; }
+
     /// <summary>
     /// Parameterless constructor required by Entity Framework for materialization.
     /// </summary>
@@ -57,7 +61,8 @@ public class Alert: Entity
     /// <param name="type">The type of the alert.</param>
     /// <param name="accountId">The ID of the profile associated with the alert.</param>
     /// <param name="inventoryId">The ID of the inventory associated with the alert.</param>
-    public Alert(string title, string message, string severity, string type, AccountId accountId, InventoryId inventoryId)
+    public Alert(string title, string message, string severity, string type, AccountId accountId,
+        InventoryId inventoryId, AlertDetails? details = null, string? idempotencyKey = null)
     {
         Id = ObjectId.GenerateNewId();
         Title = title;
@@ -67,12 +72,15 @@ public class Alert: Entity
         GeneratedAt = DateTime.UtcNow;
         AccountId = accountId;
         InventoryId = inventoryId;
+        Details = details;
+        IdempotencyKey = idempotencyKey;
     }
 
     /// <summary>
     /// Constructor for creating a new alert.
     /// </summary>
     /// <param name="command">The command containing the alert details.</param>
-    public Alert(CreateAlertCommand command):this(command.Title, command.Message, command.Severity, command.Type, command.AccountId, command.InventoryId) { }
+    public Alert(CreateAlertCommand command):this(command.Title, command.Message, command.Severity, command.Type,
+        command.AccountId, command.InventoryId, command.Details, command.IdempotencyKey) { }
 
 }

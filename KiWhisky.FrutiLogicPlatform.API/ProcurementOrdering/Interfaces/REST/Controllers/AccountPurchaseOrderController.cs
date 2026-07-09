@@ -4,6 +4,10 @@ using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Domain.Model.Queries;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Domain.Services;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Assemblers;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Resources;
+using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Model.Queries;
+using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Services;
+using System.Security.Claims;
+using KiWhisky.FrutiLogicPlatform.API.OrderManagement.Domain.Services;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -18,7 +22,9 @@ namespace KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Co
 [Tags("Accounts")]
 public class AccountPurchaseOrderController(
     IPurchaseOrderCommandService purchaseOrderCommandService,
-    IPurchaseOrderQueryService purchaseOrderQueryService) : ControllerBase
+    IPurchaseOrderQueryService purchaseOrderQueryService,
+    IUserQueryService userQueryService,
+    ISalesOrderCommandService salesOrderCommandService) : ControllerBase
 {
     /// <summary>
     /// Creates a new purchase order for the specified account.
@@ -37,14 +43,27 @@ public class AccountPurchaseOrderController(
     {
         try
         {
+            if (!await OwnsAccountAsync(accountId))
+                return Forbid();
+
             var command = new CreatePurchaseOrderCommand(
                 resource.OrderCode, 
                 resource.CatalogIdBuyFrom, 
                 accountId,
-                resource.AddressIndex
+                resource.AddressIndex,
+                resource.Items.Select(i => new CreatePurchaseOrderItemCommand(i.ProductId, i.Quantity)).ToList()
             );
             
             var orderId = await purchaseOrderCommandService.Handle(command);
+            try
+            {
+                await salesOrderCommandService.CreateFromPurchaseOrderAsync(orderId.GetId);
+            }
+            catch
+            {
+                await purchaseOrderCommandService.Handle(new CancelOrderCommand(orderId.GetId));
+                throw;
+            }
 
             var query = new GetPurchaseOrderByIdQuery(orderId.GetId);
             var order = await purchaseOrderQueryService.Handle(query);
@@ -78,9 +97,27 @@ public class AccountPurchaseOrderController(
     [SwaggerResponse(StatusCodes.Status200OK, "Purchase orders retrieved successfully.", typeof(IEnumerable<PurchaseOrderResource>))]
     public async Task<IActionResult> GetPurchaseOrdersByAccount(string accountId)
     {
+        if (!await OwnsAccountAsync(accountId))
+            return Forbid();
+
         var query = new GetOrdersByBuyerQuery(accountId);
         var orders = await purchaseOrderQueryService.Handle(query);
         var resources = PurchaseOrderResourceFromEntityAssembler.ToResourceFromEntity(orders);
         return Ok(resources);
+    }
+
+    private async Task<bool> OwnsAccountAsync(string accountId)
+    {
+        var claimAccountId = User.FindFirst("accountId")?.Value ?? User.FindFirst("accid")?.Value;
+        if (!string.IsNullOrWhiteSpace(claimAccountId))
+            return claimAccountId.Equals(accountId, StringComparison.OrdinalIgnoreCase);
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sid")?.Value;
+        if (string.IsNullOrWhiteSpace(userId))
+            return false;
+        if (userId.Equals(accountId, StringComparison.OrdinalIgnoreCase))
+            return true;
+        var user = await userQueryService.Handle(new GetUserByIdQuery(userId));
+        return user?.AccountId?.GetId.Equals(accountId, StringComparison.OrdinalIgnoreCase) == true;
     }
 }

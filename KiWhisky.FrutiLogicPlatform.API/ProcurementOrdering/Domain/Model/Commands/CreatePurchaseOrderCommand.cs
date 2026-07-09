@@ -11,5 +11,8 @@ public record CreatePurchaseOrderCommand(
     string orderCode,
     string catalogIdBuyFrom,
     string buyer,
-    int? addressIndex = null
+    int? addressIndex = null,
+    IReadOnlyCollection<CreatePurchaseOrderItemCommand>? items = null
 );
+
+public record CreatePurchaseOrderItemCommand(string ProductId, int Quantity);

@@ -5,6 +5,7 @@ using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Services;
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Interfaces.REST.Assemblers;
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Interfaces.REST.Resources;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Interfaces.REST.Controllers;
@@ -45,6 +46,9 @@ public class WarehousesController(
     [SwaggerResponse(StatusCodes.Status404NotFound, "Warehouse with the specified ID was not found.")]
     public async Task<IActionResult> GetWarehouseById([FromRoute] string warehouseId)
     {
+        if (!ObjectId.TryParse(warehouseId, out _))
+            return BadRequest("Invalid warehouse ID.");
+
         var getWarehouseById = new GetWarehouseByIdQuery(warehouseId);
         var warehouse = await warehouseQueryService.Handle(getWarehouseById);
         if (warehouse is null) return NotFound($"Warehouse with ID {warehouseId} not found.");
@@ -75,6 +79,9 @@ public class WarehousesController(
     public async Task<IActionResult> UpdateWarehouse([FromRoute] string warehouseId,
         [FromForm] UpdateWarehouseInformationResource resource)
     {
+        if (!ObjectId.TryParse(warehouseId, out _))
+            return BadRequest("Invalid warehouse ID.");
+
         var updateWarehouseCommand = UpdateWarehouseInformationCommandFromResourceAssembler.ToCommandFromResource(warehouseId, resource);
         var warehouse = await warehouseCommandService.Handle(updateWarehouseCommand);
         if (warehouse is null) return NotFound($"Warehouse with ID {warehouseId} not found.");
@@ -100,6 +107,9 @@ public class WarehousesController(
     [SwaggerResponse(StatusCodes.Status404NotFound, "Warehouse with the specified ID was not found.")]
     public async Task<IActionResult> DeleteWarehouse([FromRoute] string warehouseId)
     {
+        if (!ObjectId.TryParse(warehouseId, out _))
+            return BadRequest("Invalid warehouse ID.");
+
         var deleteWarehouseCommand = new DeleteWarehouseCommand(warehouseId);
         await warehouseCommandService.Handle(deleteWarehouseCommand);
         return NoContent();

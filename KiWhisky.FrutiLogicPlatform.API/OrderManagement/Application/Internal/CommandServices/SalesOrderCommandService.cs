@@ -142,6 +142,11 @@ public class SalesOrderCommandService : ISalesOrderCommandService
 
         var purchaseOrder = await procurementOrderingFacade.GetPurchaseOrderResourceAsync(purchaseOrderId)
                             ?? throw new InvalidOperationException($"Purchase order {purchaseOrderId} not found");
+        var existingOrder = await salesOrderRepository.GetByPurchaseOrderIdAsync(new PurchaseOrderId(purchaseOrder.id));
+        if (existingOrder != null)
+            return existingOrder;
+        if (purchaseOrder.items == null || purchaseOrder.items.Count == 0)
+            throw new ValidationException("Cannot create a sales order from an empty purchase order");
 
         var items = purchaseOrder.items.Select(i => 
         {
@@ -218,6 +223,8 @@ public class SalesOrderCommandService : ISalesOrderCommandService
     public async Task<SalesOrder> ConfirmOrderAsync(string orderId)
     {
         var order = await GetOrderForStatusChange(orderId);
+        EnsureStatus(order, ESalesOrderStatuses.Processing, "confirm");
+        await procurementOrderingFacade.ConfirmPurchaseOrderAsync(order.PurchaseOrderId.GetId);
         order.UpdateStatus(ESalesOrderStatuses.Confirmed, "Order confirmed");
         await salesOrderRepository.UpdateAsync(order);
         return order;
@@ -226,6 +233,8 @@ public class SalesOrderCommandService : ISalesOrderCommandService
     public async Task<SalesOrder> ReceiveOrderAsync(string orderId)
     {
         var order = await GetOrderForStatusChange(orderId);
+        EnsureStatus(order, ESalesOrderStatuses.Deliverying, "receive");
+        await procurementOrderingFacade.ReceivePurchaseOrderAsync(order.PurchaseOrderId.GetId);
         order.UpdateStatus(ESalesOrderStatuses.Received, "Order received");
         await salesOrderRepository.UpdateAsync(order);
         return order;
@@ -234,6 +243,8 @@ public class SalesOrderCommandService : ISalesOrderCommandService
     public async Task<SalesOrder> ShipOrderAsync(string orderId)
     {
         var order = await GetOrderForStatusChange(orderId);
+        EnsureStatus(order, ESalesOrderStatuses.Confirmed, "ship");
+        await procurementOrderingFacade.ShipPurchaseOrderAsync(order.PurchaseOrderId.GetId);
         order.UpdateStatus(ESalesOrderStatuses.Deliverying, "Order shipped");
         await salesOrderRepository.UpdateAsync(order);
         return order;
@@ -245,8 +256,11 @@ public class SalesOrderCommandService : ISalesOrderCommandService
                     ?? throw new KeyNotFoundException($"Order with ID {orderId} not found");
 
         if (order.Status == ESalesOrderStatuses.Canceled)
-            throw new ValidationException("Order is already canceled");
+            throw new InvalidOperationException("Order is already canceled");
+        if (order.Status == ESalesOrderStatuses.Received)
+            throw new InvalidOperationException("A received order cannot be canceled");
 
+        await procurementOrderingFacade.CancelPurchaseOrderAsync(order.PurchaseOrderId.GetId);
         order.UpdateStatus(ESalesOrderStatuses.Canceled, "Order canceled");
         await salesOrderRepository.UpdateAsync(order);
         return order;
@@ -258,12 +272,19 @@ public class SalesOrderCommandService : ISalesOrderCommandService
                     ?? throw new KeyNotFoundException($"Order with ID {orderId} not found");
 
         if (order.Status == ESalesOrderStatuses.Canceled)
-            throw new ValidationException("Cannot modify a canceled order");
+            throw new InvalidOperationException("Cannot modify a canceled order");
 
         if (order.DeliveryProposal != null && order.DeliveryProposal.Status != DeliveryProposalStatus.Accepted)
-            throw new ValidationException("State changes require an accepted delivery proposal.");
+            throw new InvalidOperationException("State changes require an accepted delivery proposal.");
 
         return order;
+    }
+
+    private static void EnsureStatus(SalesOrder order, ESalesOrderStatuses expected, string action)
+    {
+        if (order.Status != expected)
+            throw new InvalidOperationException(
+                $"Cannot {action} an order in status {order.Status}. Expected status: {expected}.");
     }
 }
 

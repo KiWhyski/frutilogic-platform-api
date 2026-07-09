@@ -7,5 +7,6 @@ public interface IAlertRepository: IBaseRepository<Alert>
 {
     Task<List<Alert>> GetAllAlertsByAccountId(string accountId);
     Task<List<Alert>> GetAlertsByInventoryId(string inventoryId);
+    Task<Alert?> FindByIdempotencyKeyAsync(string idempotencyKey);
     Task<Alert> GenerateAlert(string accountId, string type, string message);
 }

@@ -37,7 +37,32 @@ public class PurchaseOrderCommandService : IPurchaseOrderCommandService
     /// </summary>
     public async Task<PurchaseOrderId> Handle(CreatePurchaseOrderCommand command)
     {
+        var catalog = await _catalogRepository.GetByIdAsync(new CatalogId(command.catalogIdBuyFrom))
+                      ?? throw new InvalidOperationException("The selected catalog does not exist.");
+        if (!catalog.IsPublished)
+            throw new InvalidOperationException("The selected catalog is not published.");
+        if (catalog.OwnerAccount.GetId.Equals(command.buyer, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The catalog owner cannot buy from their own catalog.");
+        if (command.items == null || command.items.Count == 0)
+            throw new InvalidOperationException("A purchase order must contain at least one item.");
+        if (command.items.GroupBy(i => i.ProductId, StringComparer.OrdinalIgnoreCase).Any(g => g.Count() > 1))
+            throw new InvalidOperationException("A product cannot be repeated in the purchase order.");
+
         var order = new PurchaseOrder(command);
+        foreach (var requestedItem in command.items)
+        {
+            if (requestedItem.Quantity <= 0)
+                throw new InvalidOperationException("Item quantities must be greater than zero.");
+
+            var catalogItem = catalog.CatalogItems.FirstOrDefault(i =>
+                i.ProductId.GetId.Equals(requestedItem.ProductId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException(
+                    $"Product '{requestedItem.ProductId}' does not belong to the selected catalog.");
+            if (!catalogItem.HasSufficientStock(requestedItem.Quantity))
+                throw new InvalidOperationException($"Insufficient stock for product '{catalogItem.ProductName}'.");
+
+            order.AddItem(catalogItem, requestedItem.Quantity);
+        }
 
         if (command.addressIndex.HasValue)
         {
@@ -54,7 +79,24 @@ public class PurchaseOrderCommandService : IPurchaseOrderCommandService
             order.SetDeliveryAddress(deliveryAddress);
         }
 
-        await _orderRepository.AddAsync(order);
+        foreach (var item in order.Items)
+            catalog.ReduceItemStock(new ReduceCatalogItemStockCommand(
+                catalog.CatalogId.GetId(), item.ProductId, item.Quantity));
+
+        await _catalogRepository.UpdateAsync(catalog);
+        try
+        {
+            await _orderRepository.AddAsync(order);
+        }
+        catch
+        {
+            foreach (var item in order.Items)
+                catalog.RestoreItemStock(item.ProductId.GetId, item.Quantity);
+            await _catalogRepository.UpdateAsync(catalog);
+            await _orderRepository.DeleteAsync(order.PurchaseOrderId.GetId);
+            throw;
+        }
+
         return order.PurchaseOrderId;
     }
 
@@ -95,7 +137,11 @@ public class PurchaseOrderCommandService : IPurchaseOrderCommandService
     public async Task Handle(RemoveItemFromOrderCommand command)
     {
         var order = await GetOrderByIdAsync(command.orderId);
-        order.RemoveItem(command);
+        var removedItem = order.RemoveItem(command);
+        var catalog = await _catalogRepository.GetByIdAsync(order.CatalogIdBuyFrom)
+                      ?? throw new InvalidOperationException("Associated catalog not found.");
+        catalog.RestoreItemStock(removedItem.ProductId.GetId, removedItem.Quantity);
+        await _catalogRepository.UpdateAsync(catalog);
         await _orderRepository.UpdateAsync(order);
     }
 
@@ -136,6 +182,11 @@ public class PurchaseOrderCommandService : IPurchaseOrderCommandService
     {
         var order = await GetOrderByIdAsync(command.orderId);
         order.CancelOrder();
+        var catalog = await _catalogRepository.GetByIdAsync(order.CatalogIdBuyFrom)
+                      ?? throw new InvalidOperationException("Associated catalog not found.");
+        foreach (var item in order.Items)
+            catalog.RestoreItemStock(item.ProductId.GetId, item.Quantity);
+        await _catalogRepository.UpdateAsync(catalog);
         await _orderRepository.UpdateAsync(order);
     }
 

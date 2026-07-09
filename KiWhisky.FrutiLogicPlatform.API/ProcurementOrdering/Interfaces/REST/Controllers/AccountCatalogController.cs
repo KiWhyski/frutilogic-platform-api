@@ -4,6 +4,9 @@ using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Domain.Model.Queries;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Domain.Services;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Assemblers;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Resources;
+using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Model.Queries;
+using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Services;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -18,7 +21,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Co
 [Tags("Accounts")]
 public class AccountCatalogController(
     ICatalogCommandService catalogCommandService,
-    ICatalogQueryService catalogQueryService) : ControllerBase
+    ICatalogQueryService catalogQueryService,
+    IUserQueryService userQueryService) : ControllerBase
 {
     [HttpPost]
     [SwaggerOperation(
@@ -31,12 +35,16 @@ public class AccountCatalogController(
     {
         try
         {
+            if (!await OwnsAccountAsync(accountId))
+                return Forbid();
+
             // Create the original resource format that the assembler expects
             var originalResource = new CreateCatalogResource(
                 resource.name, 
                 resource.description, 
                 accountId,  // ownerAccount
-                resource.contactEmail
+                resource.contactEmail,
+                resource.warehouseId
             );
             
             var command = CreateCatalogCommandFromResourceAssembler.ToCommandFromResource(originalResource);
@@ -65,9 +73,27 @@ public class AccountCatalogController(
     [SwaggerResponse(StatusCodes.Status200OK, "Catalogs retrieved successfully.", typeof(IEnumerable<CatalogResource>))]
     public async Task<IActionResult> GetCatalogsByAccount(string accountId)
     {
+        if (!await OwnsAccountAsync(accountId))
+            return Forbid();
+
         var query = new GetCatalogsByOwnerQuery(accountId);
         var catalogs = await catalogQueryService.Handle(query);
         var resources = CatalogResourceFromEntityAssembler.ToResourceFromEntity(catalogs);
         return Ok(resources);
+    }
+
+    private async Task<bool> OwnsAccountAsync(string accountId)
+    {
+        var claimAccountId = User.FindFirst("accountId")?.Value ?? User.FindFirst("accid")?.Value;
+        if (!string.IsNullOrWhiteSpace(claimAccountId))
+            return claimAccountId.Equals(accountId, StringComparison.OrdinalIgnoreCase);
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sid")?.Value;
+        if (string.IsNullOrWhiteSpace(userId))
+            return false;
+        if (userId.Equals(accountId, StringComparison.OrdinalIgnoreCase))
+            return true;
+        var user = await userQueryService.Handle(new GetUserByIdQuery(userId));
+        return user?.AccountId?.GetId.Equals(accountId, StringComparison.OrdinalIgnoreCase) == true;
     }
 }

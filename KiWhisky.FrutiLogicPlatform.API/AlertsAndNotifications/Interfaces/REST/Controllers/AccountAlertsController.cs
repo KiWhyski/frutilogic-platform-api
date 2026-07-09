@@ -37,7 +37,23 @@ namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Interfaces.REST
             var enumerable = alerts.ToList();
             var alertResources = enumerable.Select(AlertResourceFromEntityAssembler.ToResourceFromEntity);
             return Ok(alertResources);
-        }   
+        }
+
+        [HttpPost("expiration-scan")]
+        [SwaggerOperation(
+            Summary = "Generate expiration alerts",
+            Description = "Scans account inventories and idempotently creates alerts for upcoming expirations.",
+            OperationId = "GenerateExpirationAlerts")]
+        public async Task<IActionResult> GenerateExpirationAlerts(
+            [FromRoute] string accountId,
+            [FromQuery] int daysAhead = 7)
+        {
+            if (daysAhead is < 1 or > 30)
+                return BadRequest("daysAhead must be between 1 and 30.");
+
+            var generated = await alertQueryService.Handle(new GenerateExpirationAlertsQuery(accountId, daysAhead));
+            return Ok(new { Generated = generated, DaysAhead = daysAhead });
+        }
     }
 }
 

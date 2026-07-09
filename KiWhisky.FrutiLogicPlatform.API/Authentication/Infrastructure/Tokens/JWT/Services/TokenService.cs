@@ -71,7 +71,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Tokens.J
                     new Claim(ClaimTypes.Name, user.Username ?? string.Empty),
                     new Claim(ClaimTypes.Email, user.Email?.ToString() ?? string.Empty),
                     new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                    new Claim(ClaimTypes.Role, roleValue)
+                    new Claim(ClaimTypes.Role, roleValue),
+                    new Claim("accountId", user.AccountId?.GetId ?? string.Empty)
                 }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 Issuer = _issuer,

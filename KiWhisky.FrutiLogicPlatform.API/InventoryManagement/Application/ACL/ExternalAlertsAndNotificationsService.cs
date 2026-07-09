@@ -1,4 +1,5 @@
 using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Interfaces.ACL;
+using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Model.ValueObjects;
 
 namespace KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Application.ACL;
 
@@ -14,15 +15,18 @@ public class ExternalAlertsAndNotificationsService(IAlertsAndNotificationsContex
     /// <summary>
     ///     The method is used to create an alert in the Alerts and Notifications context.
     /// </summary>
-    public void CreateAlert(string title, string message, string severity, string type, string accountId, string inventoryId)
+    public Task<string> CreateAlertAsync(string title, string message, string severity, string type, string accountId,
+        string inventoryId, AlertDetails? details = null, string? idempotencyKey = null)
     {
-        alertsAndNotificationsContextFacade.CreateAlert(
+        return alertsAndNotificationsContextFacade.CreateAlert(
             title, 
             message, 
             severity, 
             type, 
             accountId, 
-            inventoryId
+            inventoryId,
+            details,
+            idempotencyKey
             );
     }
 }

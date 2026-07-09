@@ -7,6 +7,9 @@ using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Domain.Services;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Assemblers;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Resources;
 using KiWhisky.FrutiLogicPlatform.API.Shared.Domain.Model.ValueObjects;
+using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Model.Queries;
+using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Services;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -22,7 +25,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Co
 public class CatalogController(
     ICatalogCommandService catalogCommandService,
     ICatalogQueryService catalogQueryService,
-    IPaymentAndSubscriptionsFacade paymentFacade) : ControllerBase
+    IPaymentAndSubscriptionsFacade paymentFacade,
+    IUserQueryService userQueryService) : ControllerBase
 {
     /// <summary>
     /// Retrieves a catalog by its unique identifier.
@@ -103,6 +107,9 @@ public class CatalogController(
     {
         try
         {
+            if (!await OwnsCatalogAsync(catalogId))
+                return Forbid();
+
             var command = new UpdateCatalogCommand(catalogId, resource.name, resource.description, resource.contactEmail);
             await catalogCommandService.Handle(command);
             return NoContent();
@@ -132,6 +139,9 @@ public class CatalogController(
     {
         try
         {
+            if (!await OwnsCatalogAsync(catalogId))
+                return Forbid();
+
             var command = new PublishCatalogCommand(catalogId);
             await catalogCommandService.Handle(command);
             return NoContent();
@@ -161,6 +171,9 @@ public class CatalogController(
     {
         try
         {
+            if (!await OwnsCatalogAsync(catalogId))
+                return Forbid();
+
             var command = new UnpublishCatalogCommand(catalogId);
             await catalogCommandService.Handle(command);
             return NoContent();
@@ -187,6 +200,9 @@ public class CatalogController(
     {
         try
         {
+            if (!await OwnsCatalogAsync(catalogId))
+                return Forbid();
+
             var command = new AddItemToCatalogCommand(
                 catalogId,
                 resource.ProductId,
@@ -230,6 +246,9 @@ public class CatalogController(
     {
         try
         {
+            if (!await OwnsCatalogAsync(catalogId))
+                return Forbid();
+
             var command = new RemoveItemFromCatalogCommand(catalogId, productId);
             await catalogCommandService.Handle(command);
             return NoContent();
@@ -273,5 +292,22 @@ public class CatalogController(
         var resource = AccountCatalogsResourceAssembler.ToResource(account, business, catalogs);
 
         return Ok(resource);
+    }
+
+    private async Task<bool> OwnsCatalogAsync(string catalogId)
+    {
+        var accountId = User.FindFirst("accountId")?.Value ?? User.FindFirst("accid")?.Value;
+        if (string.IsNullOrWhiteSpace(accountId))
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sid")?.Value;
+            if (string.IsNullOrWhiteSpace(userId))
+                return false;
+            var user = await userQueryService.Handle(new GetUserByIdQuery(userId));
+            accountId = user?.AccountId?.GetId ?? userId;
+        }
+
+        var catalog = await catalogQueryService.Handle(new GetCatalogByIdQuery(catalogId));
+        return catalog != null &&
+               catalog.OwnerAccount.GetId.Equals(accountId, StringComparison.OrdinalIgnoreCase);
     }
 }

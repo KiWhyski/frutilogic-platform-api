@@ -22,14 +22,20 @@ public record CreatePurchaseOrderForAccountResource
     /// </summary>
     public int? AddressIndex { get; init; }
 
+    public IReadOnlyCollection<CreatePurchaseOrderItemResource> Items { get; init; }
+
     [JsonConstructor]
     public CreatePurchaseOrderForAccountResource(
         string orderCode, 
         string catalogIdBuyFrom, 
-        int? addressIndex = null)
+        int? addressIndex = null,
+        IReadOnlyCollection<CreatePurchaseOrderItemResource>? items = null)
     {
         OrderCode = orderCode;
         CatalogIdBuyFrom = catalogIdBuyFrom;
         AddressIndex = addressIndex;
+        Items = items ?? Array.Empty<CreatePurchaseOrderItemResource>();
     }
 }
+
+public record CreatePurchaseOrderItemResource(string ProductId, int Quantity);

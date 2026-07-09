@@ -48,7 +48,10 @@ public class ProductsController(
     [SwaggerResponse(StatusCodes.Status404NotFound, "Product with the specified ID was not found.")]
     public async Task<IActionResult> GetProductById([FromRoute] string id)
     {
-        var getProductByIdQuery = new GetProductByIdQuery(ObjectId.Parse(id));
+        if (!ObjectId.TryParse(id, out var productId))
+            return BadRequest("Invalid product ID.");
+
+        var getProductByIdQuery = new GetProductByIdQuery(productId);
         var product = await productQueryService.Handle(getProductByIdQuery);
         if (product is null) return NotFound($"Product with ID {id} not found.");
         var productResource = ProductResourceFromEntityAssembler.ToResourceFromEntity(product);
@@ -102,6 +105,9 @@ public class ProductsController(
     public async Task<IActionResult> UpdateProduct([FromRoute] string id,
         [FromForm] UpdateProductInformationResource resource)
     {
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid product ID.");
+
         var updateProductInformationCommand = UpdateProductInformationCommandFromResourceAssembler.ToCommandFromResource(id, resource);
         var product = await productCommandService.Handle(updateProductInformationCommand);
         if (product is null) return BadRequest($"Product with ID {id} could not be updated.");
@@ -131,6 +137,9 @@ public class ProductsController(
     public async Task<IActionResult> UpdateProductMinimumStock([FromRoute] string id,
         [FromBody] UpdateProductMinimumStockResource resource)
     {
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid product ID.");
+
         var updateProductMinimumStockCommand = UpdateProductMinimumStockCommandFromResourceAssembler.ToCommandFromResource(id, resource);
         var product = await productCommandService.Handle(updateProductMinimumStockCommand);
         if (product is null) return BadRequest($"Product with ID {id} could not be updated.");
@@ -156,7 +165,10 @@ public class ProductsController(
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Product to delete could not be found.")]
     public async Task<IActionResult> DeleteProduct([FromRoute] string id)
     {
-        var deleteProductCommand = new DeleteProductCommand(ObjectId.Parse(id));
+        if (!ObjectId.TryParse(id, out var productId))
+            return BadRequest("Invalid product ID.");
+
+        var deleteProductCommand = new DeleteProductCommand(productId);
         await productCommandService.Handle(deleteProductCommand);
         return NoContent();
     }

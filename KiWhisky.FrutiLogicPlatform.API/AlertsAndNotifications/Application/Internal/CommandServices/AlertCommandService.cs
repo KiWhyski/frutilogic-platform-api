@@ -25,6 +25,12 @@ namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Application.Int
         /// <returns>The created alert.</returns>
         public async Task<Alert?> Handle(CreateAlertCommand command)
         {
+            if (!string.IsNullOrWhiteSpace(command.IdempotencyKey))
+            {
+                var existingAlert = await alertRepository.FindByIdempotencyKeyAsync(command.IdempotencyKey);
+                if (existingAlert is not null) return existingAlert;
+            }
+
             var alert = new Alert(command);
             await alertRepository.AddAsync(alert);
             await unitOfWork.CompleteAsync();

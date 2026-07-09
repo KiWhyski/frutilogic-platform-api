@@ -261,7 +261,8 @@ public class WarehouseProductsController(
         if (!ObjectId.TryParse(warehouseId, out var warehouseObjId)) return BadRequest("Invalid warehouse ID.");
         if (!ObjectId.TryParse(productId, out var productObjId)) return BadRequest("Invalid product ID.");
 
-        var exitType = Enum.Parse<EProductExitReasons>(resource.ExitType);
+        if (!Enum.TryParse<EProductExitReasons>(resource.ExitType, true, out var exitType))
+            return BadRequest("Invalid product exit type.");
         
         Inventory? inventory;
         if (resource.ExpirationDate.HasValue)

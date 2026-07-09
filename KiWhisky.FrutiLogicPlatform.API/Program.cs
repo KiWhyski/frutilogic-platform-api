@@ -198,9 +198,8 @@ builder.Services.AddCors(options =>
             return;
         }
 
-        policyBuilder.AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader();
+        // In production, an empty allow-list must not become AllowAnyOrigin.
+        // Development origins are populated above.
     });
 });
 
@@ -763,27 +762,6 @@ else
 
 var app = builder.Build();
 
-var corsOriginsSet = new HashSet<string>(
-    configuredCorsOrigins ?? [],
-    StringComparer.OrdinalIgnoreCase);
-var allowAnyCorsOrigin = corsOriginsSet.Count == 0 && !env.IsDevelopment();
-
-app.Use(async (context, next) =>
-{
-    var origin = context.Request.Headers.Origin.FirstOrDefault();
-    if (!string.IsNullOrEmpty(origin) && (allowAnyCorsOrigin || IsAllowedCorsOrigin(origin, corsOriginsSet)))
-    {
-        context.Response.OnStarting(() =>
-        {
-            context.Response.Headers["Access-Control-Allow-Origin"] = origin;
-            context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
-            return Task.CompletedTask;
-        });
-    }
-
-    await next();
-});
-
 using (var scope = app.Services.CreateScope())
 {
     var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
@@ -801,8 +779,6 @@ using (var scope = app.Services.CreateScope())
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.UseDeveloperExceptionPage();
-
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
@@ -815,7 +791,6 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    app.UseExceptionHandler("/error");
     app.UseHsts();
 
     var enableSwaggerInProduction = configuration.GetValue<bool>("EnableSwaggerInProduction");
@@ -829,6 +804,49 @@ else
     }
 }
 
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+        if (exception is null)
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            return;
+        }
+
+        var exceptionName = exception.GetType().Name;
+        var status = exception switch
+        {
+            FormatException => StatusCodes.Status400BadRequest,
+            ArgumentException => StatusCodes.Status400BadRequest,
+            KeyNotFoundException => StatusCodes.Status404NotFound,
+            _ when exceptionName.Contains("NotFound", StringComparison.OrdinalIgnoreCase) =>
+                StatusCodes.Status404NotFound,
+            _ when exceptionName.Contains("Deletion", StringComparison.OrdinalIgnoreCase) =>
+                StatusCodes.Status409Conflict,
+            _ when exceptionName.Contains("FailedCreation", StringComparison.OrdinalIgnoreCase) ||
+                   exceptionName.Contains("FailedUpdate", StringComparison.OrdinalIgnoreCase) ||
+                   exceptionName.Contains("Validation", StringComparison.OrdinalIgnoreCase) =>
+                StatusCodes.Status400BadRequest,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
+        context.Response.StatusCode = status;
+        await context.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Status = status,
+            Title = status == StatusCodes.Status500InternalServerError
+                ? "Unexpected server error"
+                : "Request could not be completed",
+            Detail = status == StatusCodes.Status500InternalServerError
+                ? "An unexpected error occurred."
+                : exception.Message,
+            Instance = context.Request.Path
+        });
+    });
+});
+
 app.UseStaticFiles();
 
 app.UseRouting();
@@ -840,21 +858,6 @@ app.UseRequestAuthorization();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
-if (!string.IsNullOrWhiteSpace(googleClientId))
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-}
-
-app.Map("/error", (HttpContext http) =>
-{
-    var exFeature = http.Features.Get<IExceptionHandlerFeature>();
-    if (exFeature?.Error == null) return Results.Problem("Unknown error");
-    var err = exFeature.Error;
-    http.Response.StatusCode = 500;
-    return Results.Problem(detail: err.Message, title: "Unhandled exception");
-}).RequireCors("AllowSpecificOrigins");
 
 app.MapControllers().RequireCors("AllowSpecificOrigins");
 

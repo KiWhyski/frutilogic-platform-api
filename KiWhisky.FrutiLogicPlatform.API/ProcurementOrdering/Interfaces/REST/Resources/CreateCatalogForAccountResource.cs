@@ -6,4 +6,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Re
 /// <param name="name">The catalog name.</param>
 /// <param name="description">The catalog description.</param>
 /// <param name="contactEmail">The contact email.</param>
-public record CreateCatalogForAccountResource(string name, string description, string contactEmail);
+public record CreateCatalogForAccountResource(
+    string name,
+    string description,
+    string contactEmail,
+    string warehouseId);

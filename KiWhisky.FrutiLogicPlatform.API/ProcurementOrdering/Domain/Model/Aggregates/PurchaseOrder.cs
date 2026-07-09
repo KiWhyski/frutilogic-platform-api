@@ -85,15 +85,18 @@ public class PurchaseOrder : Entity, IConfirmable
         }
     }
 
-    public void RemoveItem(RemoveItemFromOrderCommand command)
+    public PurchaseOrderItem RemoveItem(RemoveItemFromOrderCommand command)
     {
         if (Status != EOrderStatus.Processing)
             throw new InvalidOperationException("Cannot remove items from a non-processing order.");
 
         var productId = new ProductId(command.productId);
         var item = Items.FirstOrDefault(i => i.ProductId.GetId.Equals(productId.GetId, StringComparison.OrdinalIgnoreCase));
-        if (item != null)
-            Items.Remove(item);
+        if (item == null)
+            throw new InvalidOperationException($"Product {command.productId} not found in order.");
+
+        Items.Remove(item);
+        return item;
     }
 
     public Money CalculateTotal()
@@ -131,6 +134,9 @@ public class PurchaseOrder : Entity, IConfirmable
 
     public void CancelOrder()
     {
+        if (Status == EOrderStatus.Canceled)
+            throw new InvalidOperationException("Order is already canceled.");
+
         if (Status == EOrderStatus.Received)
             throw new InvalidOperationException("Cannot cancel received orders.");
 

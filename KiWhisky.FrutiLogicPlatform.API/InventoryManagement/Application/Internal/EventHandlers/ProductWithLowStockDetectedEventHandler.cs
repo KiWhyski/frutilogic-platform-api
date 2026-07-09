@@ -1,4 +1,5 @@
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Application.ACL;
+using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Model.ValueObjects;
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Model.Aggregates;
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Model.Events;
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Repositories;
@@ -67,13 +68,21 @@ public class ProductWithLowStockDetectedEventHandler(
         var severity = "Warning";
         var type = "ProductLowStock";
 
-        alertsAndNotificationsService.CreateAlert(
+        await alertsAndNotificationsService.CreateAlertAsync(
             title,
             message,
             severity,
             type,
             domainEvent.AccountId,
-            inventory.Id.ToString()
+            inventory.Id.ToString(),
+            new AlertDetails(
+                product.Id.ToString(),
+                product.Name,
+                warehouse.Id.ToString(),
+                warehouse.Name,
+                inventory.GetStock(),
+                product.MinimumStock.GetValue(),
+                inventory.ExpirationDate?.ToString())
         );
         
         return inventory.Id.ToString();

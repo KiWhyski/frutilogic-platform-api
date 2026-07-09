@@ -17,7 +17,9 @@ namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Interfaces.REST
                 entity.Severity.ToString(),
                 entity.Type.ToString(),
                 entity.AccountId.GetId,
-                entity.InventoryId.GetId
+                entity.InventoryId.GetId,
+                entity.GeneratedAt,
+                entity.Details
             );
         }
     }

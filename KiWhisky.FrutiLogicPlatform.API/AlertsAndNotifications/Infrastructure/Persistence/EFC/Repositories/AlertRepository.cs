@@ -48,6 +48,11 @@ namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Infrastructure.
                 .ToListAsync();
         }
 
+        public Task<Alert?> FindByIdempotencyKeyAsync(string idempotencyKey)
+        {
+            return _collection.Find(alert => alert.IdempotencyKey == idempotencyKey).FirstOrDefaultAsync();
+        }
+
         /// <summary>
         /// This method generates a new alert.
         /// </summary>

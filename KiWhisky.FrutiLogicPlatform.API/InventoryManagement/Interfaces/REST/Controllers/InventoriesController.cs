@@ -45,7 +45,9 @@ public class InventoriesController(
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(InventoryWithProductResource))]
     public async Task<IActionResult> GetInventoryById([FromRoute] string inventoryId)
     {
-        ObjectId inventoryObjId = new(inventoryId);
+        if (!ObjectId.TryParse(inventoryId, out var inventoryObjId))
+            return BadRequest("Invalid inventory ID.");
+
         var getInventoryByIdQuery = new GetInventoryByIdQuery(inventoryObjId);
         var inventory = await inventoryQueryService.Handle(getInventoryByIdQuery);
         if (inventory is null) return NotFound($"Inventory with ID {inventoryId} not found...");
@@ -64,7 +66,7 @@ public class InventoriesController(
     /// <returns>
     ///     A 204 No Content response if the inventory was deleted successfully, or a 404 Not Found response if the inventory was not found.
     /// </returns>
-    [HttpDelete]
+    [HttpDelete("{inventoryId}")]
     [SwaggerOperation(
         Summary = "Delete inventory by ID.",
         Description = "Deletes an inventory by its unique identifier.",
@@ -73,7 +75,9 @@ public class InventoriesController(
     [SwaggerResponse(StatusCodes.Status404NotFound, "Inventory with the specified ID was not found.")]
     public async Task<IActionResult> DeleteInventory([FromRoute] string inventoryId)
     {
-        ObjectId inventoryObjId = new(inventoryId);
+        if (!ObjectId.TryParse(inventoryId, out var inventoryObjId))
+            return BadRequest("Invalid inventory ID.");
+
         var deleteInventoryCommand = new DeleteInventoryCommand(inventoryObjId);
         await inventoryCommandService.Handle(deleteInventoryCommand);
         return NoContent();

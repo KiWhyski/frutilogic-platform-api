@@ -17,5 +17,6 @@ public record CatalogResource(
     List<CatalogItemResource> catalogItems,
     string ownerAccount,
     string contactEmail,
-    bool isPublished
+    bool isPublished,
+    string? warehouseId
 );

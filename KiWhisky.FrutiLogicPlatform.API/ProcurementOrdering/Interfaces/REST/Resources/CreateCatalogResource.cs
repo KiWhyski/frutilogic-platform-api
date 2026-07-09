@@ -11,6 +11,7 @@ public record CreateCatalogResource(
     string name,
     string description,
     string ownerAccount,
-    string contactEmail
+    string contactEmail,
+    string? warehouseId = null
 );
 

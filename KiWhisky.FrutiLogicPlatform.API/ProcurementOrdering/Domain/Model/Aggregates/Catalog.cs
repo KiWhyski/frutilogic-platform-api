@@ -123,6 +123,19 @@ public class Catalog : Entity
         item.UpdateStock(newStock);
     }
 
+    public void RestoreItemStock(string productId, int quantity)
+    {
+        if (quantity <= 0)
+            throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
+
+        var item = CatalogItems.FirstOrDefault(i =>
+            i.ProductId.GetId.Equals(productId, StringComparison.OrdinalIgnoreCase));
+        if (item == null)
+            throw new InvalidOperationException($"Product {productId} not found in catalog.");
+
+        item.UpdateStock(item.Stock + quantity);
+    }
+
     public void RemoveItem(RemoveItemFromCatalogCommand command)
     {
         var item = CatalogItems.FirstOrDefault(i => i.ProductId == command.productId);

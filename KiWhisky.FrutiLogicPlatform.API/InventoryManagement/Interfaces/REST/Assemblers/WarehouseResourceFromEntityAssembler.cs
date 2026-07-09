@@ -27,7 +27,7 @@ public static class WarehouseResourceFromEntityAssembler
             entity.Address.City,
             entity.Address.District,
             entity.Address.PostalCode,
-            entity.Address.PostalCode,
+            entity.Address.Country,
             entity.Capacity.GetValue(),
             entity.Temperature.GetMinTemperature(),
             entity.Temperature.GetMaxTemperature(),

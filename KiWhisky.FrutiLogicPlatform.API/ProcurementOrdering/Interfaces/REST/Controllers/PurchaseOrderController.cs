@@ -4,6 +4,9 @@ using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Domain.Model.Queries;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Domain.Services;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Assemblers;
 using KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Resources;
+using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Model.Queries;
+using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Services;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -18,7 +21,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.ProcurementOrdering.Interfaces.REST.Co
 [SwaggerTag("Available endpoints for managing purchase orders.")]
 public class PurchaseOrderController(
     IPurchaseOrderCommandService purchaseOrderCommandService,
-    IPurchaseOrderQueryService purchaseOrderQueryService) : ControllerBase
+    IPurchaseOrderQueryService purchaseOrderQueryService,
+    IUserQueryService userQueryService) : ControllerBase
 {
     [HttpGet("{purchaseOrderId}")]
     [SwaggerOperation(
@@ -73,6 +77,7 @@ public class PurchaseOrderController(
     {
         try
         {
+            if (!await OwnsOrderAsync(purchaseOrderId)) return Forbid();
             var quantity = resource.quantity ?? 1;
             var command = new AddItemToOrderCommand(purchaseOrderId, resource.productId, quantity);
             await purchaseOrderCommandService.Handle(command);
@@ -100,6 +105,7 @@ public class PurchaseOrderController(
     {
         try
         {
+            if (!await OwnsOrderAsync(purchaseOrderId)) return Forbid();
             var command = new RemoveItemFromOrderCommand(purchaseOrderId, productId);
             await purchaseOrderCommandService.Handle(command);
             return NoContent();
@@ -126,6 +132,7 @@ public class PurchaseOrderController(
     {
         try
         {
+            if (!await OwnsOrderAsync(purchaseOrderId)) return Forbid();
             var command = new ConfirmOrderCommand(purchaseOrderId);
             await purchaseOrderCommandService.Handle(command);
             return NoContent();
@@ -152,6 +159,7 @@ public class PurchaseOrderController(
     {
         try
         {
+            if (!await OwnsOrderAsync(purchaseOrderId)) return Forbid();
             var command = new ShipOrderCommand(purchaseOrderId);
             await purchaseOrderCommandService.Handle(command);
             return NoContent();
@@ -178,6 +186,7 @@ public class PurchaseOrderController(
     {
         try
         {
+            if (!await OwnsOrderAsync(purchaseOrderId)) return Forbid();
             var command = new ReceiveOrderCommand(purchaseOrderId);
             await purchaseOrderCommandService.Handle(command);
             return NoContent();
@@ -204,6 +213,7 @@ public class PurchaseOrderController(
     {
         try
         {
+            if (!await OwnsOrderAsync(purchaseOrderId)) return Forbid();
             var command = new CancelOrderCommand(purchaseOrderId);
             await purchaseOrderCommandService.Handle(command);
             return NoContent();
@@ -216,5 +226,21 @@ public class PurchaseOrderController(
         {
             return BadRequest(new { message = ex.Message });
         }
+    }
+
+    private async Task<bool> OwnsOrderAsync(string purchaseOrderId)
+    {
+        var accountId = User.FindFirst("accountId")?.Value ?? User.FindFirst("accid")?.Value;
+        if (string.IsNullOrWhiteSpace(accountId))
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sid")?.Value;
+            if (string.IsNullOrWhiteSpace(userId))
+                return false;
+            var user = await userQueryService.Handle(new GetUserByIdQuery(userId));
+            accountId = user?.AccountId?.GetId ?? userId;
+        }
+
+        var order = await purchaseOrderQueryService.Handle(new GetPurchaseOrderByIdQuery(purchaseOrderId));
+        return order != null && order.Buyer.GetId.Equals(accountId, StringComparison.OrdinalIgnoreCase);
     }
 }

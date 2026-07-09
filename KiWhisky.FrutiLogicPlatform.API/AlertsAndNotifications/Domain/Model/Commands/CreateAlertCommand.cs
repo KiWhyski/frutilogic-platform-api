@@ -1,3 +1,4 @@
+using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Model.ValueObjects;
 using KiWhisky.FrutiLogicPlatform.API.Shared.Domain.Model.ValueObjects;
 
 namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Model.Commands
@@ -8,6 +9,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Model.Co
         string Severity,
         string Type,
         AccountId AccountId,
-        InventoryId InventoryId);
+        InventoryId InventoryId,
+        AlertDetails? Details = null,
+        string? IdempotencyKey = null);
 }
 

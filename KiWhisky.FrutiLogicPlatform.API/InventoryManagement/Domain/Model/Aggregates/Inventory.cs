@@ -41,7 +41,7 @@ public class Inventory(
     ///     The expiration date of the product.
     /// </summary>
     [BsonIgnoreIfNull]
-    public ProductExpirationDate? ExpirationDate { get; private set; }
+    public ProductExpirationDate? ExpirationDate { get; private set; } = expirationDate;
     
     /// <summary>
     ///     Marks the product as out of stock.
@@ -112,9 +112,11 @@ public class Inventory(
     public void AddStockToProduct(int addedStock, int productMinimumStock)
     {
         if (addedStock <= 0) throw new ArgumentException("Stock cannot be negative");
-        if (Quantity.GetValue == 0) SetProductStateToWithStock();
-        if (productMinimumStock > Quantity.GetValue + addedStock) SetProductStateToWithStock();
+        var resultingStock = Quantity.GetValue + addedStock;
         Quantity = Quantity.AddStock(addedStock);
+        CurrentState = resultingStock <= productMinimumStock
+            ? EProductStates.LowStock
+            : EProductStates.WithStock;
     }
 
     /// <summary>
@@ -141,40 +143,28 @@ public class Inventory(
         // Check if there are enough stocks to remove
         if (Quantity.GetValue < removedStock) throw new ArgumentException("Insufficient stock to remove");
 
-        // Checks if the product is below minimum stock after removal. If so, it should trigger a domain event to generate an alert.
-        if (productMinimumStock >= Quantity.GetValue - removedStock)
-        {
-            // Sets the state of the product to low stock
-            SetProductStateToLowStock();
-            
-            // Create a domain event to notify about the product problem by creating an alert in the alerts and notifications context.
-            var productProblemEvent = new ProductWithLowStockDetectedEvent(
-                    accountId.GetId,
-                    ProductId.ToString(),
-                    WarehouseId.ToString(),
-                    ExpirationDate
-                );
+        var resultingStock = Quantity.GetValue - removedStock;
+        var previousState = CurrentState;
 
-            AddDomainEvent(productProblemEvent);
-        }
-        
-        // Checks if the product stock is zero after the removal. If so, it should trigger a domain event to generate an alert.
-        if (Quantity.GetValue - removedStock == 0)
+        if (resultingStock == 0)
         {
-            // Sets the state of the product to out of stock
-            SetProductStateToOutOfStock();
-            
-            // Create a domain event to notify about the product problem by creating an alert in the alerts and notifications context.
-            var productProblemEvent = new ProductWithoutStockDetectedEvent(
-                accountId.GetId,
-                ProductId.ToString(),
-                WarehouseId.ToString(),
-                ExpirationDate
-            );
-
-            AddDomainEvent(productProblemEvent);
+            CurrentState = EProductStates.OutOfStock;
+            if (previousState != EProductStates.OutOfStock)
+                AddDomainEvent(new ProductWithoutStockDetectedEvent(
+                    accountId.GetId, ProductId.ToString(), WarehouseId.ToString(), ExpirationDate));
         }
-        
+        else if (resultingStock <= productMinimumStock)
+        {
+            CurrentState = EProductStates.LowStock;
+            if (previousState != EProductStates.LowStock)
+                AddDomainEvent(new ProductWithLowStockDetectedEvent(
+                    accountId.GetId, ProductId.ToString(), WarehouseId.ToString(), ExpirationDate));
+        }
+        else
+        {
+            CurrentState = EProductStates.WithStock;
+        }
+
         // Decrease the stock of the product
         Quantity = Quantity.DecreaseStock(removedStock);
     }

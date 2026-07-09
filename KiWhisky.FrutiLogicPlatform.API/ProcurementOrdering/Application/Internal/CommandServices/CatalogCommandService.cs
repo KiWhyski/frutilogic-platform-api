@@ -33,6 +33,16 @@ public class CatalogCommandService : ICatalogCommandService
 
     public async Task<CatalogId> Handle(CreateCatalogCommand command)
     {
+        if (string.IsNullOrWhiteSpace(command.warehouseId))
+            throw new InvalidOperationException("A warehouse is required to create a catalog.");
+
+        var warehouseOwner = await _warehouseRepository.FindAccountIdByWarehouseIdAsync(command.warehouseId);
+        if (!string.Equals(warehouseOwner, command.ownerAccount, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The selected warehouse does not belong to the catalog owner.");
+
+        if (await _catalogRepository.ExistsByNameAndOwnerAsync(command.name, new AccountId(command.ownerAccount)))
+            throw new InvalidOperationException("A catalog with this name already exists for the account.");
+
         var catalog = new Catalog(command);
         await _catalogRepository.AddAsync(catalog);
         return catalog.CatalogId;
@@ -67,6 +77,14 @@ public class CatalogCommandService : ICatalogCommandService
     public async Task Handle(AddItemToCatalogCommand command)
     {
         var catalog = await GetCatalogByIdAsync(command.CatalogId);
+
+        if (string.IsNullOrWhiteSpace(catalog.WarehouseId) ||
+            !string.Equals(catalog.WarehouseId, command.WarehouseId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Products can only be assigned from the catalog warehouse.");
+
+        var warehouseOwner = await _warehouseRepository.FindAccountIdByWarehouseIdAsync(command.WarehouseId);
+        if (!string.Equals(warehouseOwner, catalog.OwnerAccount.GetId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The selected warehouse does not belong to the catalog owner.");
         
         var product = await _productContextFacade.GetProductDetailsByIdAsync(command.ProductId)
                       ?? throw new InvalidOperationException($"Product with ID {command.ProductId} not found");
@@ -91,6 +109,7 @@ public class CatalogCommandService : ICatalogCommandService
         
         inventoryItem.DecreaseStockFromProduct(stockToAssign, minimumStock, accountId);
         await _inventoryRepository.UpdateAsync(inventoryItem);
+        await _inventoryRepository.PublishEventsAsync(inventoryItem);
         
         catalog.AddItem(product.Id, product.Name, product.UnitPrice, product.Currency, product.ImageUrl, stockToAssign);
         await _catalogRepository.UpdateAsync(catalog);
@@ -99,6 +118,25 @@ public class CatalogCommandService : ICatalogCommandService
     public async Task Handle(RemoveItemFromCatalogCommand command)
     {
         var catalog = await GetCatalogByIdAsync(command.catalogId);
+        var item = catalog.CatalogItems.FirstOrDefault(i => i.ProductId == command.productId)
+                   ?? throw new InvalidOperationException($"Product {command.productId.GetId} not found in catalog.");
+
+        if (string.IsNullOrWhiteSpace(catalog.WarehouseId))
+            throw new InvalidOperationException("The catalog has no warehouse assigned.");
+
+        var inventory = await _inventoryRepository.GetByProductIdWarehouseIdAsync(
+                            new ObjectId(item.ProductId.GetId),
+                            new ObjectId(catalog.WarehouseId))
+                        ?? throw new InvalidOperationException("Associated inventory was not found.");
+        var product = await _productContextFacade.GetProductDetailsByIdAsync(item.ProductId.GetId)
+                      ?? throw new InvalidOperationException($"Product {item.ProductId.GetId} not found.");
+
+        if (item.Stock > 0)
+        {
+            inventory.AddStockToProduct(item.Stock, product.MinimumStock);
+            await _inventoryRepository.UpdateAsync(inventory);
+        }
+
         catalog.RemoveItem(command);
         await _catalogRepository.UpdateAsync(catalog);
     }

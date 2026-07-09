@@ -15,4 +15,5 @@ public interface ISalesOrderRepository : IBaseRepository<SalesOrder>
     Task<IEnumerable<SalesOrder>> GetAllSalesOrdersBySupplierId(AccountId supplierId);
     Task<IEnumerable<SalesOrder>> GetAllSalesOrders();
     Task<SalesOrder> GetByIdAsync(string id);
+    Task<SalesOrder?> GetByPurchaseOrderIdAsync(PurchaseOrderId purchaseOrderId);
 }

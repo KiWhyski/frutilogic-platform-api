@@ -1,3 +1,5 @@
+using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Model.ValueObjects;
+
 namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Interfaces.ACL
 {
     /// <summary>
@@ -8,7 +10,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Interfaces.ACL
         /// <summary>
         /// This method creates a new alert in the system with the specified parameters.
         /// </summary>
-        Task<string> CreateAlert(string title, string message, string severity, string type, string inventoryId, string profileId);
+        Task<string> CreateAlert(string title, string message, string severity, string type, string accountId,
+            string inventoryId, AlertDetails? details = null, string? idempotencyKey = null);
     }
 }
 

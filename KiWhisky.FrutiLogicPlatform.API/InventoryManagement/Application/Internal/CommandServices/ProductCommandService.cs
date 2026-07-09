@@ -5,6 +5,7 @@ using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Model.Exception
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Model.ValueObjects;
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Repositories;
 using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Services;
+using KiWhisky.FrutiLogicPlatform.API.PaymentAndSubscriptions.Interfaces.ACL.Services;
 
 namespace KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Application.Internal.CommandServices;
 
@@ -23,7 +24,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Application.Intern
 public class ProductCommandService(
         IProductRepository productRepository,
         IInventoryImageService inventoryImageService,
-        IInventoryRepository inventoryRepository
+        IInventoryRepository inventoryRepository,
+        IPaymentAndSubscriptionsFacade paymentAndSubscriptionsFacade
     ) : IProductCommandService
 {
     /// <summary>
@@ -43,6 +45,14 @@ public class ProductCommandService(
         {
             throw new ProductFailedCreationException($"El nombre \"{command.Name}\" ya está en uso en tu cuenta. Elige otro nombre.");
         }
+
+        var currentProductsCount = await productRepository.CountByAccountIdAsync(command.AccountId);
+        var maxAllowedProducts = await paymentAndSubscriptionsFacade
+            .GetPlanProductsLimitByAccountId(command.AccountId.GetId);
+
+        if (maxAllowedProducts is not null && currentProductsCount >= maxAllowedProducts)
+            throw new ProductFailedCreationException(
+                "La cuenta alcanzó el número máximo de productos permitido por su plan.");
         
         string imageUrl = command.Image != null
             ? inventoryImageService.UploadImage(command.Image)

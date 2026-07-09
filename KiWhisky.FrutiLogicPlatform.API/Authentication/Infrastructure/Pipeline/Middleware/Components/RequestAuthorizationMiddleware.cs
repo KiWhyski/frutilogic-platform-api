@@ -2,7 +2,10 @@ using KiWhisky.FrutiLogicPlatform.API.Authentication.Application.Internal.Outbou
 using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Model.Queries;
 using KiWhisky.FrutiLogicPlatform.API.Authentication.Domain.Services;
 using KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Pipeline.Middleware.Attributes;
+using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Repositories;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using CustomAllowAnonymousAttribute = KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Pipeline.Middleware.Attributes.AllowAnonymousAttribute;
 namespace KiWhisky.FrutiLogicPlatform.API.Authentication.Infrastructure.Pipeline.Middleware.Components;
 
@@ -26,7 +29,10 @@ public class RequestAuthorizationMiddleware(RequestDelegate next,
     public async Task InvokeAsync(
         HttpContext     context,
         IUserQueryService userQueryService,
-        ITokenService     tokenService)
+        ITokenService     tokenService,
+        IProductRepository productRepository,
+        IWarehouseRepository warehouseRepository,
+        IInventoryRepository inventoryRepository)
     {
         _logger.LogInformation("Entering InvokeAsync");
             
@@ -87,6 +93,87 @@ public class RequestAuthorizationMiddleware(RequestDelegate next,
         }
         
         var user = await userQueryService.Handle(new GetUserByIdQuery(userId));
+        if (user is null)
+        {
+            _logger.LogWarning("Token resolved to a user that no longer exists");
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "Unauthorized",
+                Detail = "The authenticated user no longer exists."
+            });
+            return;
+        }
+
+        var routeAccountId = context.Request.RouteValues.TryGetValue("accountId", out var routeValue)
+            ? routeValue?.ToString()
+            : null;
+
+        if (!string.IsNullOrWhiteSpace(routeAccountId) &&
+            !string.Equals(routeAccountId, user.AccountId.GetId, StringComparison.Ordinal))
+        {
+            _logger.LogWarning(
+                "User {UserId} attempted to access account {RouteAccountId}",
+                user.Id,
+                routeAccountId);
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status = StatusCodes.Status403Forbidden,
+                Title = "Forbidden",
+                Detail = "You cannot access resources that belong to another account."
+            });
+            return;
+        }
+
+        var controller = context.Request.RouteValues.TryGetValue("controller", out var controllerValue)
+            ? controllerValue?.ToString()
+            : null;
+        var ownsResource = true;
+
+        if (string.Equals(controller, "Products", StringComparison.OrdinalIgnoreCase) &&
+            context.Request.RouteValues.TryGetValue("id", out var productRouteValue) &&
+            ObjectId.TryParse(productRouteValue?.ToString(), out var productObjectId))
+        {
+            var product = await productRepository.FindByIdAsync(productObjectId.ToString());
+            ownsResource = product is null ||
+                string.Equals(product.AccountId.GetId, user.AccountId.GetId, StringComparison.Ordinal);
+        }
+        else if ((string.Equals(controller, "Warehouses", StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(controller, "WarehouseProducts", StringComparison.OrdinalIgnoreCase)) &&
+                 context.Request.RouteValues.TryGetValue("warehouseId", out var warehouseRouteValue) &&
+                 ObjectId.TryParse(warehouseRouteValue?.ToString(), out var warehouseObjectId))
+        {
+            var warehouse = await warehouseRepository.FindByIdAsync(warehouseObjectId.ToString());
+            ownsResource = warehouse is null ||
+                string.Equals(warehouse.AccountId.GetId, user.AccountId.GetId, StringComparison.Ordinal);
+        }
+        else if (string.Equals(controller, "Inventories", StringComparison.OrdinalIgnoreCase) &&
+                 context.Request.RouteValues.TryGetValue("inventoryId", out var inventoryRouteValue) &&
+                 ObjectId.TryParse(inventoryRouteValue?.ToString(), out var inventoryObjectId))
+        {
+            var inventory = await inventoryRepository.FindByIdAsync(inventoryObjectId.ToString());
+            if (inventory is not null)
+            {
+                var product = await productRepository.FindByIdAsync(inventory.ProductId.ToString());
+                ownsResource = product is null ||
+                    string.Equals(product.AccountId.GetId, user.AccountId.GetId, StringComparison.Ordinal);
+            }
+        }
+
+        if (!ownsResource)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status = StatusCodes.Status403Forbidden,
+                Title = "Forbidden",
+                Detail = "You cannot access resources that belong to another account."
+            });
+            return;
+        }
+
         _logger.LogInformation("Successful authorization. Setting HttpContext.Items[\"User\"]");
         context.Items["User"] = user;
         _logger.LogInformation("Continuing with Middleware Pipeline");

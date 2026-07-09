@@ -19,6 +19,7 @@ public class ProductRepository(AppDbContext context, IMediator mediator) : BaseR
     ///     The MongoDB collection for the Product aggregate.   
     /// </summary>
     private readonly IMongoCollection<Product> _productCollection = context.GetCollection<Product>();
+    private readonly IMongoCollection<Inventory> _inventoryCollection = context.GetCollection<Inventory>();
     
     /// <summary>
     ///     Method to check if a product exists by a given name.
@@ -87,21 +88,20 @@ public class ProductRepository(AppDbContext context, IMediator mediator) : BaseR
     ///     A list of products for the specified warehouse.
     ///     Or an empty list if no products are found.
     /// </returns>
-    public Task<ICollection<Product>> FindByWarehouseIdAsync(ObjectId warehouseId)
+    public async Task<ICollection<Product>> FindByWarehouseIdAsync(ObjectId warehouseId)
     {
-        throw new NotImplementedException();
-        
-        // TODO: Complete this when doing inventories section for doing this
-        
-        // var productIds = await _inventoryCollection
-        //  .Find(inv => inv.WarehouseId == warehouseId)
-        //  .Project(inv => inv.ProductId)
-        //  .Distinct()
-        //  .ToListAsync();
-        
-        // var products = await _productCollection
-        //  .Find(prod => productIds.Contains(prod.Id))
-        //  .ToListAsync();
+        var productIds = await _inventoryCollection
+            .Find(inventory => inventory.WarehouseId == warehouseId)
+            .Project(inventory => inventory.ProductId)
+            .ToListAsync();
+
+        if (productIds.Count == 0)
+            return [];
+
+        var distinctProductIds = productIds.Distinct().ToList();
+        return await _productCollection
+            .Find(Builders<Product>.Filter.In(product => product.Id, distinctProductIds))
+            .ToListAsync();
     }
 
     /// <summary>

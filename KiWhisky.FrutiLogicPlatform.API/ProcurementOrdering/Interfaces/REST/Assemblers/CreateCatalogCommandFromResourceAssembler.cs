@@ -19,7 +19,8 @@ public static class CreateCatalogCommandFromResourceAssembler
             resource.name,
             resource.description,
             resource.ownerAccount,
-            resource.contactEmail
+            resource.contactEmail,
+            resource.warehouseId
         );
     }
 }

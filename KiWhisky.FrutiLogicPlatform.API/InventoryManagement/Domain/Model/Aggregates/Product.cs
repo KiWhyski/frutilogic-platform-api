@@ -95,7 +95,8 @@ public class Product(
     /// <param name="command">
     ///     The command containing the details for updating the minimum stock of the product.
     /// </param>
-    public void UpdateMinimumStock(UpdateProductMinimumStockCommand command) => MinimumStock.UpdateMinimumStock(command.NewMinimumStock);
+    public void UpdateMinimumStock(UpdateProductMinimumStockCommand command)
+        => MinimumStock = MinimumStock.UpdateMinimumStock(command.NewMinimumStock);
 
     /// <summary>
     ///     Method to update the total stock in store of the product.
@@ -112,6 +113,7 @@ public class Product(
             throw new ArgumentException("Total stock in store cannot be negative.", nameof(totalStockInStore));
 
         TotalStockInStore = totalStockInStore;
+        IsInWarehouse = totalStockInStore > 0;
     }
     
     /// <summary>

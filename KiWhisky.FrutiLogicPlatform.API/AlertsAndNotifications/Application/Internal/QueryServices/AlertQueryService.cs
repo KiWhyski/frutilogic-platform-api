@@ -1,11 +1,20 @@
 using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Model.Aggregates;
+using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Model.Commands;
 using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Model.Queries;
+using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Model.ValueObjects;
 using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Repositories;
 using KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Services;
+using KiWhisky.FrutiLogicPlatform.API.InventoryManagement.Domain.Repositories;
+using KiWhisky.FrutiLogicPlatform.API.Shared.Domain.Model.ValueObjects;
 
 namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Application.Internal.QueryServices
 {
-    public class AlertQueryService(IAlertRepository alertRepository): IAlertQueryService
+    public class AlertQueryService(
+        IAlertRepository alertRepository,
+        IAlertCommandService alertCommandService,
+        IWarehouseRepository warehouseRepository,
+        IInventoryRepository inventoryRepository,
+        IProductRepository productRepository): IAlertQueryService
     {
         /// <summary>
         /// This method retrieves an alert by its ID.
@@ -45,6 +54,60 @@ namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Application.Int
         public async Task<IEnumerable<Alert>> Handle(GetAllAlertsByAccountIdQuery query)
         {
             return await alertRepository.GetAllAlertsByAccountId(query.accountId);
+        }
+
+        public async Task<int> Handle(GenerateExpirationAlertsQuery query)
+        {
+            if (query.DaysAhead is < 1 or > 30)
+                throw new ArgumentOutOfRangeException(nameof(query.DaysAhead), "Days ahead must be between 1 and 30.");
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var limit = today.AddDays(query.DaysAhead);
+            var generated = 0;
+            var warehouses = await warehouseRepository.FindByAccountIdAsync(new AccountId(query.AccountId));
+
+            foreach (var warehouse in warehouses)
+            {
+                var inventories = await inventoryRepository.FindByWarehouseIdAsync(warehouse.Id);
+                foreach (var inventory in inventories)
+                {
+                    var expirationDate = inventory.ExpirationDate?.GetValue();
+                    if (!expirationDate.HasValue || expirationDate.Value < today ||
+                        expirationDate.Value > limit || inventory.GetStock() <= 0)
+                        continue;
+
+                    var expiration = expirationDate.Value;
+                    var idempotencyKey = $"expiration:{inventory.Id}:{expiration:yyyy-MM-dd}";
+                    if (await alertRepository.FindByIdempotencyKeyAsync(idempotencyKey) is not null) continue;
+
+                    var product = await productRepository.FindByIdAsync(inventory.ProductId.ToString());
+                    if (product is null) continue;
+
+                    var daysUntilExpiration = expiration.DayNumber - today.DayNumber;
+                    var details = new AlertDetails(
+                        product.Id.ToString(),
+                        product.Name,
+                        warehouse.Id.ToString(),
+                        warehouse.Name,
+                        inventory.GetStock(),
+                        product.MinimumStock.GetValue(),
+                        expiration.ToString("yyyy-MM-dd"),
+                        daysUntilExpiration);
+
+                    await alertCommandService.Handle(new CreateAlertCommand(
+                        $"Expiration warning: {product.Name}",
+                        $"Product {product.Name} in warehouse {warehouse.Name} expires on {expiration:yyyy-MM-dd}.",
+                        daysUntilExpiration <= 2 ? "Critical" : "Warning",
+                        EAlertTypes.ProductExpired.ToString(),
+                        warehouse.AccountId,
+                        new InventoryId(inventory.Id.ToString()),
+                        details,
+                        idempotencyKey));
+                    generated++;
+                }
+            }
+
+            return generated;
         }
     }
 }

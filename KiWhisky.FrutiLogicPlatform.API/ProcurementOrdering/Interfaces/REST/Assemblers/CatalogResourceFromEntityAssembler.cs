@@ -30,7 +30,8 @@ public static class CatalogResourceFromEntityAssembler
             )).ToList(),
             entity.OwnerAccount.GetId,
             entity.ContactEmail.GetValue,
-            entity.IsPublished
+            entity.IsPublished,
+            entity.WarehouseId
         );
     }
 

@@ -9,6 +9,7 @@ namespace KiWhisky.FrutiLogicPlatform.API.AlertsAndNotifications.Domain.Services
     
         Task<IEnumerable<Alert>> Handle(GetAllAlertsByInventoryIdQuery query);
         Task<IEnumerable<Alert>> Handle(GetAllAlertsByAccountIdQuery query);
+        Task<int> Handle(GenerateExpirationAlertsQuery query);
     }
 }
 

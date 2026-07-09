@@ -59,5 +59,11 @@ public class SalesOrderRepository : BaseRepository<SalesOrder>, ISalesOrderRepos
     {
         return await FindByIdAsync(id);
     }
+
+    public async Task<SalesOrder?> GetByPurchaseOrderIdAsync(PurchaseOrderId purchaseOrderId)
+    {
+        ArgumentNullException.ThrowIfNull(purchaseOrderId);
+        return await _salesOrders.Find(order => order.PurchaseOrderId == purchaseOrderId).FirstOrDefaultAsync();
+    }
 }
 

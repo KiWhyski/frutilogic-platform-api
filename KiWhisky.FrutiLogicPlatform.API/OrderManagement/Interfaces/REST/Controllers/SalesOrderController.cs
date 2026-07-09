@@ -79,7 +79,6 @@ namespace KiWhisky.FrutiLogicPlatform.API.OrderManagement.Interfaces.REST.Contro
         }
 
         [HttpPost("from-procurement/completed")]
-        [AllowAnonymous]
         [SwaggerOperation(Summary = "Create a Sales Order from a completed Procurement order payload")]
         [SwaggerResponse(StatusCodes.Status201Created, "Sales order created successfully", typeof(SalesOrderResource))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid request data")]
@@ -106,7 +105,6 @@ namespace KiWhisky.FrutiLogicPlatform.API.OrderManagement.Interfaces.REST.Contro
         }
 
         [HttpPost("from-procurement/{purchaseOrderId}")]
-        [AllowAnonymous]
         [SwaggerOperation(
             Summary = "Automatically creates a Sales Order from a Purchase Order",
             Description = "This endpoint generates a Sales Order based on the specified Purchase Order ID. " +
@@ -272,6 +270,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.OrderManagement.Interfaces.REST.Contro
         {
             try
             {
+                if (!await CanChangeStatusAsync(orderId, supplier: true, buyer: false))
+                    return Forbid();
                 await _salesOrderCommandService.ConfirmOrderAsync(orderId);
                 return NoContent();
             }
@@ -296,6 +296,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.OrderManagement.Interfaces.REST.Contro
         {
             try
             {
+                if (!await CanChangeStatusAsync(orderId, supplier: false, buyer: true))
+                    return Forbid();
                 await _salesOrderCommandService.ReceiveOrderAsync(orderId);
                 return NoContent();
             }
@@ -320,6 +322,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.OrderManagement.Interfaces.REST.Contro
         {
             try
             {
+                if (!await CanChangeStatusAsync(orderId, supplier: true, buyer: false))
+                    return Forbid();
                 await _salesOrderCommandService.ShipOrderAsync(orderId);
                 return NoContent();
             }
@@ -344,6 +348,8 @@ namespace KiWhisky.FrutiLogicPlatform.API.OrderManagement.Interfaces.REST.Contro
         {
             try
             {
+                if (!await CanChangeStatusAsync(orderId, supplier: true, buyer: true))
+                    return Forbid();
                 await _salesOrderCommandService.CancelOrderAsync(orderId);
                 return NoContent();
             }
@@ -355,6 +361,24 @@ namespace KiWhisky.FrutiLogicPlatform.API.OrderManagement.Interfaces.REST.Contro
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        private async Task<bool> CanChangeStatusAsync(string orderId, bool supplier, bool buyer)
+        {
+            var order = await _salesOrderRepository.GetByIdAsync(orderId);
+            if (order == null) return false;
+
+            var accountId = User.FindFirst("accountId")?.Value ?? User.FindFirst("accid")?.Value;
+            if (string.IsNullOrWhiteSpace(accountId))
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sid")?.Value;
+                if (string.IsNullOrWhiteSpace(userId)) return false;
+                var user = await _userQueryService.Handle(new GetUserByIdQuery(userId));
+                accountId = user?.AccountId?.GetId ?? userId;
+            }
+
+            return (supplier && order.SupplierId?.GetId.Equals(accountId, StringComparison.OrdinalIgnoreCase) == true)
+                   || (buyer && order.AccountId.GetId.Equals(accountId, StringComparison.OrdinalIgnoreCase));
         }
         
     }
